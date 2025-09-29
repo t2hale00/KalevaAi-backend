@@ -1,0 +1,66 @@
+# Core Image/Video Processing
+opencv-python==4.8.1.78
+Pillow==10.0.1
+moviepy==1.0.3
+ffmpeg-python==0.2.0
+
+# AI/LLM Integration
+google-generativeai==0.3.2
+openai==1.3.7
+anthropic==0.7.8
+
+# Data Processing
+numpy==1.24.3
+pandas==2.1.3
+scikit-image==0.21.0
+
+# Web Framework
+fastapi==0.104.1
+uvicorn==0.24.0
+python-multipart==0.0.6
+
+# HTTP Requests
+requests==2.31.0
+httpx==0.25.2
+
+# File Handling
+python-magic==0.4.27
+pathlib2==2.3.7
+
+# Environment & Configuration
+python-dotenv==1.0.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Async Support
+aiofiles==23.2.1
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+
+# Development Tools
+black==23.11.0
+flake8==6.1.0
+mypy==1.7.1
+
+# Pre-commit Hooks
+pre-commit==3.6.0
+
+# Logging
+loguru==0.7.2
+
+# Image Enhancement
+scikit-learn==1.3.2
+matplotlib==3.8.2
+
+# Video Processing Enhancement
+imageio==2.31.6
+imageio-ffmpeg==0.4.9
+
+# Progress Bars
+tqdm==4.66.1
+
+# File Validation
+python-magic-bin==0.4.14; sys_platform == "win32"
