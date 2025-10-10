@@ -1,12 +1,11 @@
-# Byte-compiled / optimized / DLL files
+# Environment variables
+.env
+
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
 *.so
-
-# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -24,124 +23,37 @@ wheels/
 .installed.cfg
 *.egg
 
-# PyInstaller
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
-
 # Virtual environments
 venv/
 env/
 ENV/
-env.bak/
-venv.bak/
-
-# Environment variables
-.env
-.env.local
-.env.development
-.env.production
-.env.test
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# Uploaded and generated files
+uploads/
+outputs/
+temp/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
-
-# Temporary files
-tmp/
-temp/
-
-# FastAPI specific
+# Testing
 .pytest_cache/
 .coverage
+htmlcov/
 
-# AI/ML specific
-models/
-*.pkl
-*.joblib
-*.h5
-*.pb
-
-# Data files
-data/
-datasets/
-*.csv
-*.json
-*.xml
-*.xlsx
-
-# Media files (for processing)
-uploads/
-processed/
-exports/
-*.jpg
-*.jpeg
-*.png
-*.gif
-*.mp4
-*.mov
-*.avi
-*.webm
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# pyenv
-.python-version
-
-# pipenv
-Pipfile.lock
-
-# PEP 582
-__pypackages__/
-
-# Celery
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
+# MyPy
 .mypy_cache/
 .dmypy.json
 dmypy.json
-
-# Pyre type checker
-.pyre/
-
-
