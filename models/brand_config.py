@@ -25,7 +25,7 @@ BRAND_SPECIFICATIONS: Dict[str, BrandSpecs] = {
     "Kaleva": BrandSpecs(
         name="Kaleva",
         logo_path="assets/logos/kaleva.png",
-        color_palette=["#000000", "#FFFFFF"],  # Black and white
+        color_palette=["#FF8C30", "#FFFFFF", "#000000"],  # Orange, White, Black
         font_family="Axiforma",
         font_color="#FFFFFF",  # White
         font_size_story=80,
@@ -37,7 +37,7 @@ BRAND_SPECIFICATIONS: Dict[str, BrandSpecs] = {
     "Lapin Kansa": BrandSpecs(
         name="Lapin Kansa",
         logo_path="assets/logos/lapin_kansa.png",
-        color_palette=["#000000", "#FFFFFF"],
+        color_palette=["#0075bf", "#FFFFFF", "#000000"],  # Blue, White, Black
         font_family="Axiforma",
         font_color="#FFFFFF",
         font_size_story=80,
@@ -61,7 +61,7 @@ BRAND_SPECIFICATIONS: Dict[str, BrandSpecs] = {
     "Koillissanomat": BrandSpecs(
         name="Koillissanomat",
         logo_path="assets/logos/koillissanomat.png",
-        color_palette=["#000000", "#FFFFFF"],
+        color_palette=["#76bd22", "#FFFFFF", "#000000"],  # Lime Green, White, Black
         font_family="Axiforma",
         font_color="#FFFFFF",
         font_size_story=80,

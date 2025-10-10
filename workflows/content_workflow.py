@@ -10,6 +10,7 @@ from loguru import logger
 from services.text_generation import text_generation_service
 from services.image_processing import image_processing_service
 from services.video_generation import video_generation_service
+from services.graphic_composer import graphic_composer
 from services.brand_service import brand_service
 from models.schemas import ContentGenerationRequest, ContentGenerationResponse, GeneratedText
 from config import settings
@@ -78,18 +79,20 @@ class ContentWorkflow:
                 graphic_url = None
                 file_format = "N/A"
             elif request.output_type.value == "static":
-                # Generate static graphic
+                # Generate static graphic using advanced composer
                 output_filename = f"{task_id}.png"
                 output_path = str(self.output_dir / output_filename)
                 
-                image_processing_service.create_branded_graphic(
+                graphic_composer.create_branded_social_graphic(
                     input_image_path=image_path,
                     heading_text=generated_text.heading,
+                    description_text=generated_text.description,
                     newspaper=request.newspaper.value,
                     platform=request.platform.value,
                     content_type=request.content_type.value,
                     layout=request.layout.value,
-                    output_path=output_path
+                    output_path=output_path,
+                    campaign_type="elections_2025"
                 )
                 
                 graphic_url = f"/api/download/{output_filename}"
