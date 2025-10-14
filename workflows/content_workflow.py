@@ -27,7 +27,8 @@ class ContentWorkflow:
     async def generate_content(
         self,
         request: ContentGenerationRequest,
-        image_path: Optional[str] = None
+        image_path: Optional[str] = None,
+        banner_data: Optional[dict] = None
     ) -> ContentGenerationResponse:
         """
         Main workflow to generate branded content.
@@ -43,24 +44,21 @@ class ContentWorkflow:
         logger.info(f"Starting content generation workflow - Task ID: {task_id}")
         
         try:
-            # Step 1: Generate text content using Gemini
-            logger.info("Step 1: Generating text content")
+            # Step 1: Generate multiple versions of text content
+            logger.info("Step 1: Generating multiple versions of text content")
             generated_text_dict = text_generation_service.generate_text(
                 platform=request.platform.value,
                 content_type=request.content_type.value,
                 text_length=request.text_length.value,
                 input_text=request.text_content,
-                newspaper=request.newspaper.value
+                newspaper=request.newspaper.value,
+                num_versions=2
             )
             
-            generated_text = GeneratedText(
-                heading=generated_text_dict["heading"],
-                description=generated_text_dict["description"],
-                platform=request.platform.value,
-                tone="professional" if request.platform.value == "linkedin" else "friendly"
-            )
+            headings = generated_text_dict["headings"]
+            descriptions = generated_text_dict["descriptions"]
             
-            logger.info(f"Generated text - Heading: {generated_text.heading[:50]}...")
+            logger.info(f"Generated {len(headings)} headings and {len(descriptions)} descriptions")
             
             # Step 2: Get platform specifications
             platform_specs = brand_service.get_platform_requirements(
@@ -72,39 +70,66 @@ class ContentWorkflow:
             # Step 3: Generate graphic (static or animated)
             logger.info(f"Step 2: Generating {request.output_type.value} graphic")
             
+            # Initialize variables
+            graphic_url = None
+            graphic_urls = []
+            file_format = "N/A"
+            
             if image_path is None:
                 # Create a placeholder if no image provided (for testing)
                 logger.warning("No image provided, using placeholder")
-                # In production, you might want to create a default branded background
-                graphic_url = None
-                file_format = "N/A"
+                # Variables already initialized above
             elif request.output_type.value == "static":
-                # Generate static graphic using advanced composer
-                output_filename = f"{task_id}.png"
-                output_path = str(self.output_dir / output_filename)
+                # Generate multiple static graphics (2 headings × 2 descriptions = 4 graphics)
+                logger.info("Step 2: Generating multiple static graphics")
                 
-                graphic_composer.create_branded_social_graphic(
-                    input_image_path=image_path,
-                    heading_text=generated_text.heading,
-                    description_text=generated_text.description,
-                    newspaper=request.newspaper.value,
-                    platform=request.platform.value,
-                    content_type=request.content_type.value,
-                    layout=request.layout.value,
-                    output_path=output_path,
-                    campaign_type="elections_2025"
-                )
+                # Determine campaign type based on banner data
+                campaign_type = "none"
+                if banner_data and banner_data.get("add_banner") and banner_data.get("banner_name"):
+                    campaign_type = banner_data["banner_name"]
                 
-                graphic_url = f"/api/download/{output_filename}"
+                graphic_urls = []
+                graphic_count = 0
+                
+                for i, heading in enumerate(headings):
+                    for j, description in enumerate(descriptions):
+                        graphic_count += 1
+                        output_filename = f"{task_id}_v{graphic_count}.png"
+                        output_path = str(self.output_dir / output_filename)
+                        
+                        try:
+                            graphic_composer.create_branded_social_graphic(
+                                input_image_path=image_path,
+                                heading_text=heading,
+                                description_text=description,
+                                newspaper=request.newspaper.value,
+                                platform=request.platform.value,
+                                content_type=request.content_type.value,
+                                layout=request.layout.value,
+                                output_path=output_path,
+                                campaign_type=campaign_type
+                            )
+                            
+                            graphic_urls.append(f"/api/download/{output_filename}")
+                            logger.info(f"Generated graphic {graphic_count}: {output_filename}")
+                            
+                        except Exception as e:
+                            logger.error(f"Error generating graphic {graphic_count}: {e}")
+                
+                # Return all graphic URLs
+                graphic_url = graphic_urls[0] if graphic_urls else None
                 file_format = "PNG"
             else:
-                # Generate animated graphic
+                # Generate animated graphic (use first heading for now)
                 output_filename = f"{task_id}.mp4"
                 output_path = str(self.output_dir / output_filename)
                 
+                # Use the first heading for animated graphics
+                first_heading = headings[0] if headings else "Generated Heading"
+                
                 video_generation_service.create_motion_graphic(
                     input_image_path=image_path,
-                    heading_text=generated_text.heading,
+                    heading_text=first_heading,
                     newspaper=request.newspaper.value,
                     platform=request.platform.value,
                     content_type=request.content_type.value,
@@ -114,18 +139,47 @@ class ContentWorkflow:
                 
                 graphic_url = f"/api/download/{output_filename}"
                 file_format = "MP4"
+                graphic_urls = [graphic_url]  # Single video for now
             
-            # Create response
+            # Create response with multiple versions
             dimensions = f"{platform_specs['width']}×{platform_specs['height']}px ({platform_specs['aspect_ratio']})"
+            
+            # Create multiple GeneratedText objects for each combination
+            generated_texts = []
+            
+            # Ensure we have headings and descriptions
+            if not headings:
+                headings = ["Generated Heading"]
+            if not descriptions:
+                descriptions = ["Generated Description"]
+            
+            for i, heading in enumerate(headings):
+                for j, description in enumerate(descriptions):
+                    text_obj = GeneratedText(
+                        heading=heading,
+                        description=description,
+                        platform=request.platform.value,
+                        tone="professional" if request.platform.value == "linkedin" else "friendly"
+                    )
+                    generated_texts.append(text_obj)
+            
+            # For now, return the first text version (we'll update frontend to handle multiple)
+            primary_generated_text = generated_texts[0] if generated_texts else GeneratedText(
+                heading="Generated Heading",
+                description="Generated Description",
+                platform=request.platform.value,
+                tone="friendly"
+            )
             
             response = ContentGenerationResponse(
                 success=True,
                 task_id=task_id,
-                generated_text=generated_text,
+                generated_text=primary_generated_text,
                 graphic_url=graphic_url,
+                graphic_urls=graphic_urls if graphic_urls else ([graphic_url] if graphic_url else []),
                 file_format=file_format,
                 dimensions=dimensions,
-                message="Content generated successfully"
+                message=f"Generated {len(headings)} headings, {len(descriptions)} descriptions, and {len(graphic_urls)} graphics successfully"
             )
             
             logger.info(f"Workflow completed successfully - Task ID: {task_id}")

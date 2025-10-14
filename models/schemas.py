@@ -84,12 +84,21 @@ class GeneratedText(BaseModel):
     tone: str = Field(..., description="Text tone")
 
 
+class MultipleGeneratedText(BaseModel):
+    """Multiple versions of generated text content."""
+    headings: List[str] = Field(..., description="List of generated headings")
+    descriptions: List[str] = Field(..., description="List of generated descriptions")
+    platform: str = Field(..., description="Target platform")
+    tone: str = Field(..., description="Text tone")
+
+
 class ContentGenerationResponse(BaseModel):
     """Response model for content generation."""
     success: bool = Field(..., description="Whether generation was successful")
     task_id: str = Field(..., description="Unique task identifier")
     generated_text: GeneratedText = Field(..., description="Generated text content")
     graphic_url: Optional[str] = Field(None, description="URL to download generated graphic")
+    graphic_urls: Optional[List[str]] = Field(None, description="URLs to download all generated graphics")
     file_format: str = Field(..., description="Output file format (PNG, JPEG, MP4)")
     dimensions: str = Field(..., description="Output dimensions")
     message: Optional[str] = Field(None, description="Additional message or error details")

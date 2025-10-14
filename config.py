@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     
     # Gemini API Configuration
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-1.5-pro"  # or "gemini-1.5-flash" for faster responses
+    GEMINI_MODEL: str = "gemini-pro"  # Most stable model name
     
     # File Upload Configuration
     MAX_UPLOAD_SIZE: int = 50 * 1024 * 1024  # 50 MB

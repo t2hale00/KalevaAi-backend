@@ -142,15 +142,6 @@ class ImageProcessingService:
             title_location
         )
         
-        # Add text shadow for better readability
-        shadow_offset = 3
-        draw.text(
-            (position[0] + shadow_offset, position[1] + shadow_offset),
-            text,
-            font=font,
-            fill=(0, 0, 0, 180)  # Semi-transparent black shadow
-        )
-        
         # Add main text
         draw.text(
             position,

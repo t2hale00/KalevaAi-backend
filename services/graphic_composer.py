@@ -67,8 +67,9 @@ class GraphicComposer:
         # Add dark overlay for text readability
         canvas = self._add_dark_overlay(canvas, intensity=0.4)
         
-        # Add campaign banner (top-right)
-        canvas = self._add_campaign_banner(canvas, colors, campaign_type)
+        # Add campaign banner (top-right) only if campaign_type is not "none"
+        if campaign_type != "none":
+            canvas = self._add_campaign_banner(canvas, colors, campaign_type)
         
         # Add newspaper branding (top-left)
         canvas = self._add_newspaper_branding(canvas, newspaper, colors)
@@ -160,15 +161,15 @@ class GraphicComposer:
         return canvas.convert('RGB')
     
     def _add_campaign_banner(self, canvas: Image.Image, colors: Dict, campaign_type: str) -> Image.Image:
-        """Add campaign banner (like "ALUE- JA KUNTA- VAALIT 2025")."""
+        """Add campaign banner with custom text."""
         draw = ImageDraw.Draw(canvas)
         width, height = canvas.size
         
-        # Campaign text based on type
-        if campaign_type == "elections_2025":
-            banner_text = "ALUE- JA KUNTA- VAALIT 2025"
-        else:
-            banner_text = "CAMPAIGN 2025"
+        # Use the provided campaign type as banner text
+        # Convert to uppercase and add "2025" if not present
+        banner_text = campaign_type.upper()
+        if "2025" not in banner_text:
+            banner_text += " 2025"
         
         # Calculate banner size and position
         banner_height = int(height * 0.08)  # 8% of canvas height

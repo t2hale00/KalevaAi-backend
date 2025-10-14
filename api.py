@@ -73,6 +73,8 @@ async def generate_content(
     newspaper: str = Form(...),
     text_content: Optional[str] = Form(None),
     text_length: str = Form("medium"),
+    add_banner: str = Form("false"),
+    banner_name: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None)
 ):
     """
@@ -109,6 +111,9 @@ async def generate_content(
             image_path = await file_handler.save_upload(image_content, image.filename)
             logger.info(f"Image uploaded: {image_path}")
         
+        # Parse banner options
+        add_banner_bool = add_banner.lower() == "true"
+        
         # Create request object
         request = ContentGenerationRequest(
             text_content=text_content,
@@ -120,8 +125,14 @@ async def generate_content(
             text_length=text_length
         )
         
+        # Add banner data to request context
+        banner_data = {
+            "add_banner": add_banner_bool,
+            "banner_name": banner_name.strip() if banner_name else None
+        }
+        
         # Generate content
-        response = await content_workflow.generate_content(request, image_path)
+        response = await content_workflow.generate_content(request, image_path, banner_data)
         
         return response
         

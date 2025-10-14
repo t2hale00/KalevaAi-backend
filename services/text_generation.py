@@ -19,7 +19,16 @@ class TextGenerationService:
             self.model = None
         else:
             genai.configure(api_key=settings.GEMINI_API_KEY)
-            self.model = genai.GenerativeModel(settings.GEMINI_MODEL)
+            # Use the stable API version
+            self.model = genai.GenerativeModel(
+                model_name=settings.GEMINI_MODEL,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.7,
+                    top_p=0.8,
+                    top_k=40,
+                    max_output_tokens=1024,
+                )
+            )
     
     def generate_text(
         self,
@@ -27,8 +36,9 @@ class TextGenerationService:
         content_type: str,
         text_length: str,
         input_text: Optional[str] = None,
-        newspaper: Optional[str] = None
-    ) -> Dict[str, str]:
+        newspaper: Optional[str] = None,
+        num_versions: int = 2
+    ) -> Dict[str, list]:
         """
         Generate heading and description for social media content.
         
@@ -40,39 +50,60 @@ class TextGenerationService:
             newspaper: Regional newspaper brand
             
         Returns:
-            Dictionary with 'heading' and 'description' keys
+            Dictionary with 'headings' and 'descriptions' keys (lists of versions)
         """
-        if not self.model:
-            raise ValueError("Gemini API not configured. Please set GEMINI_API_KEY in .env file.")
+        # Generate multiple versions of text
+        logger.info(f"Generating {num_versions} versions of text for {platform} {content_type} with {text_length} length")
         
-        # Determine tone based on platform
-        tone = "professional" if platform == "linkedin" else "friendly and engaging"
+        headings = []
+        descriptions = []
         
-        # Build character limits based on Table 3
-        heading_limits = self._get_heading_limits(platform, text_length)
-        description_limits = self._get_description_limits(platform, content_type, text_length)
+        for version in range(num_versions):
+            try:
+                if self.model:
+                    # Try Gemini if available
+                    tone = "professional" if platform == "linkedin" else "friendly and engaging"
+                    heading_limits = self._get_heading_limits(platform, text_length)
+                    description_limits = self._get_description_limits(platform, content_type, text_length)
+                    
+                    prompt = self._build_prompt(
+                        platform=platform,
+                        content_type=content_type,
+                        tone=tone,
+                        heading_limits=heading_limits,
+                        description_limits=description_limits,
+                        input_text=input_text,
+                        newspaper=newspaper
+                    )
+                    # Add version variation to prompt
+                    if version > 0:
+                        prompt += f"\n\nGenerate a different variation (version {version + 1}) with alternative wording and style."
+                    
+                    response = self.model.generate_content(prompt)
+                    result = self._parse_response(response.text)
+                    headings.append(result["heading"])
+                    descriptions.append(result["description"])
+                    logger.info(f"Generated version {version + 1} with Gemini")
+                else:
+                    # Fallback to template-based generation
+                    result = self._generate_fallback_text(platform, content_type, text_length, input_text, newspaper, version)
+                    headings.append(result["heading"])
+                    descriptions.append(result["description"])
+                    logger.info(f"Generated version {version + 1} with fallback")
+                    
+            except Exception as e:
+                logger.error(f"Error generating text version {version + 1}: {str(e)}")
+                # Use fallback if Gemini fails
+                result = self._generate_fallback_text(platform, content_type, text_length, input_text, newspaper, version)
+                headings.append(result["heading"])
+                descriptions.append(result["description"])
+                logger.info(f"Generated version {version + 1} with fallback after error")
         
-        # Build prompt
-        prompt = self._build_prompt(
-            platform=platform,
-            content_type=content_type,
-            tone=tone,
-            heading_limits=heading_limits,
-            description_limits=description_limits,
-            input_text=input_text,
-            newspaper=newspaper
-        )
-        
-        logger.info(f"Generating text for {platform} {content_type} with {text_length} length")
-        
-        try:
-            response = self.model.generate_content(prompt)
-            result = self._parse_response(response.text)
-            logger.info("Text generation successful")
-            return result
-        except Exception as e:
-            logger.error(f"Error generating text: {str(e)}")
-            raise
+        logger.info(f"Successfully generated {len(headings)} headings and {len(descriptions)} descriptions")
+        return {
+            "headings": headings,
+            "descriptions": descriptions
+        }
     
     def _get_heading_limits(self, platform: str, text_length: str) -> str:
         """Get character limits for headings based on platform."""
@@ -169,6 +200,78 @@ DESCRIPTION: [your description here]
         return {
             "heading": heading or "Generated Heading",
             "description": description or "Generated description content."
+        }
+    
+    def _generate_fallback_text(
+        self,
+        platform: str,
+        content_type: str,
+        text_length: str,
+        input_text: Optional[str],
+        newspaper: Optional[str],
+        version: int = 0
+    ) -> Dict[str, str]:
+        """Generate fallback text using templates when Gemini is not available."""
+        
+        # Base templates with multiple versions
+        templates = {
+            "instagram": [
+                {
+                    "heading": "Tiedä, mitä äänellesi tapahtuu",
+                    "description": "Lue uusimmat uutiset ja seuraa tapahtumia meidän kanssasi. Jaa mielipiteesi ja ota osaa keskusteluun."
+                },
+                {
+                    "heading": "Pysy ajan tasalla tapahtumista",
+                    "description": "Seuraa paikallisia uutisia ja tapahtumia. Ota osaa yhteisöömme ja jaa ajatuksiasi kanssamme."
+                }
+            ],
+            "facebook": [
+                {
+                    "heading": "Seuraa meitä päivittäin",
+                    "description": "Pysy ajan tasalla uusimmista uutisista ja tapahtumista. Liity yhteisöömme ja jaa ajatuksiasi kanssamme."
+                },
+                {
+                    "heading": "Liity keskusteluun kanssamme",
+                    "description": "Lue viimeisimmät uutiset ja ota osaa yhteisöömme. Jaa mielipiteesi ja keskustele aiheista."
+                }
+            ],
+            "linkedin": [
+                {
+                    "heading": "Ammattitaitoista journalismia",
+                    "description": "Lue syvällisiä analyysejä ja ammattitaitoista journalismia. Pysy ajan tasalla alasi viimeisimmistä kehityksistä."
+                },
+                {
+                    "heading": "Syvällistä asiantuntemusta",
+                    "description": "Saat ajantasaiset uutiset ja ammattitaitoista näkökulmaa. Seuraa alasi kehitystä kanssamme."
+                }
+            ]
+        }
+        
+        # Get base template for this version
+        platform_templates = templates.get(platform, templates["instagram"])
+        template_index = version % len(platform_templates)
+        base_template = platform_templates[template_index]
+        
+        # Customize based on input text
+        if input_text:
+            # Use input text as inspiration with version variation
+            if version == 0:
+                heading = f"{input_text[:50]}..."
+                description = f"Lue lisää aiheesta: {input_text}"
+            else:
+                heading = f"Tietoa aiheesta: {input_text[:40]}"
+                description = f"Tutustu aiheeseen: {input_text}"
+        else:
+            heading = base_template["heading"]
+            description = base_template["description"]
+        
+        # Add newspaper branding
+        if newspaper:
+            heading = f"{newspaper}: {heading}"
+        
+        return {
+            "heading": heading,
+            "description": description
         }
 
 

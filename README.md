@@ -144,3 +144,5 @@ backend/
 - Gemini is used for all text generation tasks
 
 
+
+

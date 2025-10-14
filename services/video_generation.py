@@ -2,11 +2,13 @@
 Video generation service for creating motion-style graphics.
 Uses MoviePy for video creation with simple transitions.
 """
-from moviepy.editor import ImageClip, CompositeVideoClip, TextClip, concatenate_videoclips
+from moviepy.editor import ImageClip, CompositeVideoClip, concatenate_videoclips
 import numpy as np
 from typing import Optional, List
 from pathlib import Path
 from loguru import logger
+from PIL import Image, ImageDraw, ImageFont
+import cv2
 
 from models.brand_config import get_brand_specs, get_platform_specs
 
@@ -53,102 +55,128 @@ class VideoGenerationService:
         target_width = platform_specs["width"]
         target_height = platform_specs["height"]
         
-        # Create base image clip with zoom effect
-        image_clip = (ImageClip(input_image_path)
-                     .resize((target_width, target_height))
-                     .set_duration(duration)
-                     .fx(self._zoom_effect))
+        # Create video using OpenCV instead of MoviePy to avoid ImageMagick dependency
+        logger.info("Creating video frames with text overlay using OpenCV")
         
-        # Create text overlay with fade-in effect
-        text_clip = self._create_text_clip(
-            heading_text,
-            brand_specs,
-            content_type,
-            target_width,
-            target_height,
-            duration
+        # Import graphic composer to create a branded frame
+        from services.graphic_composer import graphic_composer
+        
+        # Create a temporary branded image with text
+        temp_image_path = str(Path(output_path).parent / f"temp_{Path(output_path).stem}.png")
+        
+        graphic_composer.create_branded_social_graphic(
+            input_image_path=input_image_path,
+            heading_text=heading_text,
+            description_text="",  # No description for video
+            newspaper=newspaper,
+            platform=platform,
+            content_type=content_type,
+            layout=layout,
+            output_path=temp_image_path,
+            campaign_type="none"
         )
         
-        # Composite video with image and text
-        final_clip = CompositeVideoClip([image_clip, text_clip])
+        # Create video with animations using OpenCV
+        base_img = cv2.imread(temp_image_path)
+        height, width, layers = base_img.shape
         
-        # Write video file
-        final_clip.write_videofile(
-            output_path,
-            fps=30,
-            codec='libx264',
-            audio=False,
-            preset='medium'
-        )
+        # Define the codec and create VideoWriter object
+        # Use H264 codec for better compatibility
+        fourcc = cv2.VideoWriter_fourcc(*'avc1')
+        video = cv2.VideoWriter(output_path, fourcc, 30, (width, height))
+        
+        # Check if video writer opened successfully
+        if not video.isOpened():
+            logger.warning("H264 codec failed, trying mp4v")
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            video = cv2.VideoWriter(output_path, fourcc, 30, (width, height))
+        
+        # Create animated frames
+        fps = 30
+        total_frames = duration * fps
+        
+        logger.info(f"Generating {total_frames} animated frames at {fps} fps")
+        
+        for frame_num in range(total_frames):
+            # Calculate progress (0 to 1)
+            progress = frame_num / total_frames
+            
+            # Create animated frame with effects
+            animated_frame = self._apply_animation_effects(
+                base_img.copy(),
+                progress,
+                width,
+                height
+            )
+            
+            video.write(animated_frame)
+            
+            # Log progress every 30 frames (every second)
+            if frame_num % 30 == 0:
+                logger.debug(f"Generated frame {frame_num}/{total_frames} (progress: {progress:.1%})")
+        
+        # Release the video writer
+        video.release()
+        
+        # Clean up temporary image
+        try:
+            Path(temp_image_path).unlink()
+        except:
+            pass
         
         logger.info(f"Motion graphic saved to {output_path}")
         
         return output_path
     
-    def _zoom_effect(self, get_frame, t):
-        """Apply subtle zoom effect to video."""
-        frame = get_frame(t)
-        # Subtle zoom from 100% to 110%
-        zoom_factor = 1 + 0.1 * (t / 5)  # Assuming 5 second duration
-        h, w = frame.shape[:2]
+    def _apply_animation_effects(self, frame, progress, width, height):
+        """
+        Apply PowerPoint-style animation effects to the frame.
         
-        # Calculate crop for zoom
-        new_h, new_w = int(h / zoom_factor), int(w / zoom_factor)
-        y1 = (h - new_h) // 2
-        x1 = (w - new_w) // 2
+        Effects:
+        - Zoom in effect: Image zooms from 100% to 120%
+        - Fade in effect: Fades in from black
+        - Pan effect: Slight horizontal movement
+        """
+        # Effect 1: Strong Zoom effect (Ken Burns style)
+        # More aggressive zoom for visibility
+        zoom_factor = 1.0 + (0.25 * progress)  # Zoom from 100% to 125%
         
-        cropped = frame[y1:y1+new_h, x1:x1+new_w]
-        zoomed = np.array(Image.fromarray(cropped).resize((w, h)))
+        # Calculate new dimensions
+        new_width = int(width * zoom_factor)
+        new_height = int(height * zoom_factor)
         
-        return zoomed
-    
-    def _create_text_clip(
-        self,
-        text: str,
-        brand_specs,
-        content_type: str,
-        width: int,
-        height: int,
-        duration: int
-    ) -> TextClip:
-        """Create text clip with animations."""
-        font_size = brand_specs.font_size_story if content_type == "story" else brand_specs.font_size_post
+        # Resize frame with smooth interpolation
+        zoomed = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
         
-        # Determine position
-        title_location = (
-            brand_specs.title_location_story if content_type == "story"
-            else brand_specs.title_location_post
-        )
+        # Effect 2: Pan effect (slight horizontal movement)
+        # Pan from left to center
+        pan_offset = int((new_width - width) * (0.5 - progress * 0.3))
+        start_x = max(0, min(pan_offset, new_width - width))
+        start_y = (new_height - height) // 2
         
-        position = self._get_text_position(title_location)
+        # Ensure we don't go out of bounds
+        if start_x + width > new_width:
+            start_x = new_width - width
+        if start_y + height > new_height:
+            start_y = new_height - height
+            
+        cropped = zoomed[start_y:start_y + height, start_x:start_x + width]
         
-        # Create text clip (simplified - full implementation would use custom fonts)
-        text_clip = (TextClip(
-            text,
-            fontsize=font_size,
-            color=brand_specs.font_color,
-            stroke_color='black',
-            stroke_width=2,
-            method='caption',
-            size=(width - 80, None)  # Width with margin
-        )
-        .set_duration(duration)
-        .set_position(position)
-        .crossfadein(0.5))  # Fade in effect
+        # Effect 3: Fade in effect (first 1.5 seconds)
+        if progress < 0.3:  # First 30% of video
+            fade_progress = progress / 0.3
+            # Smooth fade curve
+            fade_progress = fade_progress ** 0.5  # Ease out
+            # Apply fade by blending with black
+            black = np.zeros_like(cropped)
+            cropped = cv2.addWeighted(black, 1 - fade_progress, cropped, fade_progress, 0)
         
-        return text_clip
-    
-    def _get_text_position(self, location: str) -> tuple:
-        """Get text position for video overlay."""
-        positions = {
-            "top-left": ("left", "top"),
-            "top-right": ("right", "top"),
-            "top-center": ("center", "top"),
-            "center": ("center", "center"),
-            "bottom-left": ("left", "bottom"),
-            "bottom-right": ("right", "bottom"),
-        }
-        return positions.get(location, ("left", "top"))
+        # Effect 4: Brightness enhancement (subtle throughout)
+        if progress > 0.3:  # After fade in
+            brightness_boost = 1.0 + (0.1 * (progress - 0.3))  # Gradually brighten
+            cropped = cv2.convertScaleAbs(cropped, alpha=min(brightness_boost, 1.15), beta=5)
+        
+        return cropped
 
 
 # Create singleton instance
