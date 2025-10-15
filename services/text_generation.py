@@ -233,11 +233,13 @@ class TextGenerationService:
         if input_text:
             # Use input text as inspiration with version variation
             if version == 0:
-                heading = f"{input_text[:50]}..."
-                description = f"Lue lisää aiheesta: {input_text}"
+                # Version A: Use input text as heading, create different description
+                heading = input_text[:50] + ("..." if len(input_text) > 50 else "")
+                description = f"Lue lisää tästä aiheesta ja seuraa meitä päivittäin."
             else:
-                heading = f"Tietoa aiheesta: {input_text[:40]}"
-                description = f"Tutustu aiheeseen: {input_text}"
+                # Version B: Create different heading, use input text as description
+                heading = f"Uutinen: {input_text[:40]}"
+                description = input_text
         else:
             heading = base_template["heading"]
             description = base_template["description"]

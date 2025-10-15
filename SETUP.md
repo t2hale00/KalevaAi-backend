@@ -9,7 +9,7 @@ Create a file named `.env` in the `backend/` folder with the following content:
 ```env
 # Gemini API Configuration
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-1.5-pro
+GEMINI_MODEL=gemini-1.5-flash
 
 # Application Settings
 DEBUG=True
