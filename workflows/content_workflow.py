@@ -84,7 +84,7 @@ class ContentWorkflow:
                 logger.info("Step 2: Generating multiple static graphics")
                 
                 # Determine campaign type based on banner data
-                campaign_type = "none"
+                campaign_type = "logo_only"  # Always show logo
                 if banner_data and banner_data.get("add_banner") and banner_data.get("banner_name"):
                     campaign_type = banner_data["banner_name"]
                 
@@ -163,7 +163,7 @@ class ContentWorkflow:
                     )
                     generated_texts.append(text_obj)
             
-            # For now, return the first text version (we'll update frontend to handle multiple)
+            # Return the first text version as primary, but also include all versions in the response
             primary_generated_text = generated_texts[0] if generated_texts else GeneratedText(
                 heading="Generated Heading",
                 description="Generated Description",
@@ -181,6 +181,10 @@ class ContentWorkflow:
                 dimensions=dimensions,
                 message=f"Generated {len(headings)} headings, {len(descriptions)} descriptions, and {len(graphic_urls)} graphics successfully"
             )
+            
+            # Add multiple text versions to the response
+            response.headings = headings
+            response.descriptions = descriptions
             
             logger.info(f"Workflow completed successfully - Task ID: {task_id}")
             return response

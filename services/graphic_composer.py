@@ -2,9 +2,8 @@
 Advanced graphic composition service for creating branded social media graphics.
 Inspired by the example outputs provided by the user.
 """
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
-import numpy as np
-from typing import Optional, Tuple, Dict
+from PIL import Image, ImageDraw, ImageFont
+from typing import Dict
 from pathlib import Path
 from loguru import logger
 
@@ -14,6 +13,57 @@ from assets.newspaper_colors import get_newspaper_colors_rgb
 
 class GraphicComposer:
     """Advanced service for creating branded social media graphics."""
+    
+    def _load_font(self, font_size: int, font_family: str = "Axiforma") -> ImageFont.FreeTypeFont:
+        """Load font with proper fallback chain."""
+        # Try to load Axiforma from various possible locations
+        possible_paths = [
+            # Local assets directory
+            Path(__file__).parent.parent / "assets" / "fonts" / f"{font_family}.ttf",
+            Path(__file__).parent.parent / "assets" / "fonts" / f"{font_family}.otf",
+            Path(__file__).parent.parent / "assets" / "fonts" / f"{font_family.lower()}.ttf",
+            Path(__file__).parent.parent / "assets" / "fonts" / f"{font_family.lower()}.otf",
+            # System fonts (Windows)
+            Path("C:/Windows/Fonts") / f"{font_family}.ttf",
+            Path("C:/Windows/Fonts") / f"{font_family}.otf",
+            Path("C:/Windows/Fonts") / f"{font_family.lower()}.ttf",
+            Path("C:/Windows/Fonts") / f"{font_family.lower()}.otf",
+            # System fonts (macOS)
+            Path("/System/Library/Fonts") / f"{font_family}.ttf",
+            Path("/System/Library/Fonts") / f"{font_family}.otf",
+            Path("/Library/Fonts") / f"{font_family}.ttf",
+            Path("/Library/Fonts") / f"{font_family}.otf",
+            # System fonts (Linux)
+            Path("/usr/share/fonts/truetype") / f"{font_family.lower()}.ttf",
+            Path("/usr/share/fonts/opentype") / f"{font_family.lower()}.otf",
+        ]
+        
+        for font_path in possible_paths:
+            if font_path.exists():
+                try:
+                    font = ImageFont.truetype(str(font_path), font_size)
+                    logger.info(f"Loaded font: {font_path}")
+                    return font
+                except (OSError, IOError) as e:
+                    logger.warning(f"Failed to load font {font_path}: {e}")
+                    continue
+        
+        # Fallback to system fonts
+        try:
+            # Try Arial (common on Windows)
+            font = ImageFont.truetype("arial.ttf", font_size)
+            logger.warning("Using Arial fallback font")
+            return font
+        except (OSError, IOError):
+            try:
+                # Try Helvetica (common on macOS)
+                font = ImageFont.truetype("Helvetica.ttc", font_size)
+                logger.warning("Using Helvetica fallback font")
+                return font
+            except (OSError, IOError):
+                # Final fallback to default
+                logger.warning("Using PIL default font")
+                return ImageFont.load_default()
     
     def create_branded_social_graphic(
         self,
@@ -64,27 +114,14 @@ class GraphicComposer:
             background = self._create_background_layer(input_image_path, target_width, target_height)
             canvas.paste(background, (0, 0))
         
-        # Add dark overlay for text readability
-        canvas = self._add_dark_overlay(canvas, intensity=0.4)
+        # Add campaign banner with correct positioning
+        canvas = self._add_campaign_banner(canvas, colors, content_type, target_width, target_height)
         
-        # Add campaign banner (top-right) only if campaign_type is not "none"
-        if campaign_type != "none":
-            canvas = self._add_campaign_banner(canvas, colors, campaign_type)
-        
-        # Add newspaper branding (top-left)
-        canvas = self._add_newspaper_branding(canvas, newspaper, colors)
+        # Add newspaper logo (top-right)
+        canvas = self._add_newspaper_logo(canvas, newspaper, colors)
         
         # Add main headline
         canvas = self._add_headline(canvas, heading_text, target_width, target_height)
-        
-        # Add call-to-action button
-        canvas = self._add_cta_button(canvas, colors, target_width, target_height)
-        
-        # Add newspaper footer branding
-        canvas = self._add_footer_branding(canvas, newspaper, colors, target_height)
-        
-        # Add bottom CTA
-        canvas = self._add_bottom_cta(canvas, colors, target_height)
         
         # Save the final image
         canvas.save(output_path, quality=95, optimize=True)
@@ -101,8 +138,7 @@ class GraphicComposer:
             if image.mode != 'RGB':
                 image = image.convert('RGB')
             
-            # Apply blur effect for better text readability
-            image = image.filter(ImageFilter.GaussianBlur(radius=1))
+            # Keep photo clear without blur effects
             
             # Resize with smart cropping
             image = self._smart_resize(image, width, height)
@@ -160,24 +196,59 @@ class GraphicComposer:
         canvas = Image.alpha_composite(canvas, overlay)
         return canvas.convert('RGB')
     
-    def _add_campaign_banner(self, canvas: Image.Image, colors: Dict, campaign_type: str) -> Image.Image:
-        """Add campaign banner with custom text."""
-        draw = ImageDraw.Draw(canvas)
+    def _add_newspaper_logo(self, canvas: Image.Image, newspaper: str, colors: Dict) -> Image.Image:
+        """Add newspaper logo in top-right corner."""
         width, height = canvas.size
         
-        # Use the provided campaign type as banner text
-        # Convert to uppercase and add "2025" if not present
-        banner_text = campaign_type.upper()
-        if "2025" not in banner_text:
-            banner_text += " 2025"
-        
-        # Calculate banner size and position
-        banner_height = int(height * 0.08)  # 8% of canvas height
-        banner_width = int(width * 0.4)     # 40% of canvas width
+        # Calculate logo size and position
+        logo_size = int(height * 0.08)  # 8% of canvas height
         
         # Position at top-right
-        x_pos = width - banner_width - int(width * 0.05)  # 5% margin
+        x_pos = width - logo_size - int(width * 0.05)  # 5% margin
         y_pos = int(height * 0.05)  # 5% margin
+        
+        # Try to load newspaper logo
+        brand_specs = get_brand_specs(newspaper)
+        if brand_specs and brand_specs.logo_path:
+            logo_path = Path(brand_specs.logo_path)
+            if logo_path.exists():
+                try:
+                    logo = Image.open(logo_path)
+                    # Resize logo to fit the size
+                    logo = logo.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
+                    
+                    # Convert to RGBA if needed for transparency
+                    if logo.mode != 'RGBA':
+                        logo = logo.convert('RGBA')
+                    
+                    # Paste logo onto canvas
+                    canvas.paste(logo, (x_pos, y_pos), logo)
+                    logger.info(f"Added {newspaper} logo to graphic")
+                except Exception as e:
+                    logger.warning(f"Failed to load logo for {newspaper}: {e}")
+        
+        return canvas
+    
+    def _add_campaign_banner(self, canvas: Image.Image, colors: Dict, content_type: str, width: int, height: int) -> Image.Image:
+        """Add campaign banner with correct positioning based on content type."""
+        draw = ImageDraw.Draw(canvas)
+        
+        # Campaign banner text
+        banner_text = "ALUE- JA KUNTA-VAALIT 2025"
+        
+        # Calculate banner size
+        banner_height = int(height * 0.08)  # 8% of canvas height
+        banner_width = int(width * 0.35)    # 35% of canvas width
+        
+        # Position based on content type
+        if content_type == "story":
+            # Stories: upper right
+            x_pos = width - banner_width - int(width * 0.05)  # 5% margin
+            y_pos = int(height * 0.05)  # 5% margin
+        else:
+            # Posts: upper left
+            x_pos = int(width * 0.05)  # 5% margin
+            y_pos = int(height * 0.05)  # 5% margin
         
         # Create banner background
         banner_rect = [x_pos, y_pos, x_pos + banner_width, y_pos + banner_height]
@@ -185,10 +256,7 @@ class GraphicComposer:
         
         # Add banner text
         font_size = min(banner_height // 2, 24)
-        try:
-            font = ImageFont.truetype("arial.ttf", font_size)
-        except:
-            font = ImageFont.load_default()
+        font = self._load_font(font_size)
         
         # Get text bounding box
         bbox = draw.textbbox((0, 0), banner_text, font=font)
@@ -203,45 +271,6 @@ class GraphicComposer:
         
         return canvas
     
-    def _add_newspaper_branding(self, canvas: Image.Image, newspaper: str, colors: Dict) -> Image.Image:
-        """Add newspaper branding in top-left corner."""
-        draw = ImageDraw.Draw(canvas)
-        width, height = canvas.size
-        
-        # Branding area
-        branding_width = int(width * 0.4)
-        branding_height = int(height * 0.12)
-        x_pos = int(width * 0.05)  # 5% margin
-        y_pos = int(height * 0.05)  # 5% margin
-        
-        # Add newspaper name
-        font_size = min(branding_height // 3, 32)
-        try:
-            font = ImageFont.truetype("arial.ttf", font_size)
-        except:
-            font = ImageFont.load_default()
-        
-        # Newspaper name with styling
-        newspaper_text = newspaper.upper()
-        
-        # Add text shadow
-        draw.text((x_pos + 2, y_pos + 2), newspaper_text, fill=(0, 0, 0, 128), font=font)
-        # Add main text
-        draw.text((x_pos, y_pos), newspaper_text, fill=colors["text_light"], font=font)
-        
-        # Add "Sponsoroitu" text below
-        sponsored_text = "Sponsoroitu"
-        sponsored_font_size = font_size // 2
-        try:
-            sponsored_font = ImageFont.truetype("arial.ttf", sponsored_font_size)
-        except:
-            sponsored_font = ImageFont.load_default()
-        
-        sponsored_y = y_pos + branding_height // 2
-        draw.text((x_pos, sponsored_y), sponsored_text, fill=colors["text_light"], font=sponsored_font)
-        
-        return canvas
-    
     def _add_headline(self, canvas: Image.Image, text: str, width: int, height: int) -> Image.Image:
         """Add main headline text."""
         draw = ImageDraw.Draw(canvas)
@@ -252,10 +281,7 @@ class GraphicComposer:
         
         # Font size based on canvas size
         font_size = min(width // 15, height // 15, 48)
-        try:
-            font = ImageFont.truetype("arial.ttf", font_size)
-        except:
-            font = ImageFont.load_default()
+        font = self._load_font(font_size)
         
         # Wrap text if needed
         words = text.split()
@@ -290,109 +316,13 @@ class GraphicComposer:
             text_x = x_center - text_width // 2
             text_y = start_y + (i * font_size)
             
-            # Add text shadow
-            draw.text((text_x + 2, text_y + 2), line, fill=(0, 0, 0, 128), font=font)
-            # Add main text
+            # Add main text with clear visibility
             draw.text((text_x, text_y), line, fill=(255, 255, 255), font=font)
         
         return canvas
     
-    def _add_cta_button(self, canvas: Image.Image, colors: Dict, width: int, height: int) -> Image.Image:
-        """Add call-to-action button."""
-        draw = ImageDraw.Draw(canvas)
-        
-        # Button dimensions
-        button_width = int(width * 0.6)
-        button_height = int(height * 0.08)
-        button_x = (width - button_width) // 2
-        button_y = int(height * 0.65)
-        
-        # Button background
-        button_rect = [button_x, button_y, button_x + button_width, button_y + button_height]
-        draw.rectangle(button_rect, fill=colors["secondary"], outline=colors["primary"], width=2)
-        
-        # Button text
-        cta_text = "TEE PAIKALLINEN VAALIKONE"
-        font_size = min(button_height // 3, 20)
-        try:
-            font = ImageFont.truetype("arial.ttf", font_size)
-        except:
-            font = ImageFont.load_default()
-        
-        # Center text in button
-        bbox = draw.textbbox((0, 0), cta_text, font=font)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
-        text_x = button_x + (button_width - text_width) // 2
-        text_y = button_y + (button_height - text_height) // 2
-        
-        draw.text((text_x, text_y), cta_text, fill=colors["primary"], font=font)
-        
-        return canvas
     
-    def _add_footer_branding(self, canvas: Image.Image, newspaper: str, colors: Dict, height: int) -> Image.Image:
-        """Add newspaper branding in footer area."""
-        draw = ImageDraw.Draw(canvas)
-        width = canvas.size[0]
-        
-        # Footer area
-        footer_height = int(height * 0.15)
-        footer_y = height - footer_height
-        
-        # Footer background
-        footer_rect = [0, footer_y, width, height]
-        draw.rectangle(footer_rect, fill=colors["primary"])
-        
-        # Newspaper name in footer
-        font_size = min(footer_height // 4, 36)
-        try:
-            font = ImageFont.truetype("arial.ttf", font_size)
-        except:
-            font = ImageFont.load_default()
-        
-        newspaper_text = newspaper.upper()
-        bbox = draw.textbbox((0, 0), newspaper_text, font=font)
-        text_width = bbox[2] - bbox[0]
-        text_x = (width - text_width) // 2
-        text_y = footer_y + (footer_height - font_size) // 2
-        
-        draw.text((text_x, text_y), newspaper_text, fill=colors["text_light"], font=font)
-        
-        return canvas
     
-    def _add_bottom_cta(self, canvas: Image.Image, colors: Dict, height: int) -> Image.Image:
-        """Add bottom call-to-action."""
-        draw = ImageDraw.Draw(canvas)
-        width = canvas.size[0]
-        
-        # Bottom CTA button
-        button_width = int(width * 0.4)
-        button_height = int(height * 0.06)
-        button_x = (width - button_width) // 2
-        button_y = height - int(height * 0.03) - button_height
-        
-        # Button background
-        button_rect = [button_x, button_y, button_x + button_width, button_y + button_height]
-        draw.rectangle(button_rect, fill=colors["secondary"], outline=colors["accent"], width=1)
-        
-        # Button text
-        cta_text = "Lue lisää"
-        font_size = min(button_height // 3, 16)
-        try:
-            font = ImageFont.truetype("arial.ttf", font_size)
-        except:
-            font = ImageFont.load_default()
-        
-        # Center text in button
-        bbox = draw.textbbox((0, 0), cta_text, font=font)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
-        text_x = button_x + (button_width - text_width) // 2
-        text_y = button_y + (button_height - text_height) // 2
-        
-        draw.text((text_x, text_y), cta_text, fill=colors["accent"], font=font)
-        
-        return canvas
 
 
 # Create singleton instance

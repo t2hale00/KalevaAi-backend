@@ -5,7 +5,7 @@ Uses Pillow and OpenCV for image manipulation.
 from PIL import Image, ImageDraw, ImageFont
 import cv2
 import numpy as np
-from typing import Optional, Tuple
+from typing import Tuple
 from pathlib import Path
 from loguru import logger
 
@@ -14,6 +14,57 @@ from models.brand_config import get_brand_specs, get_platform_specs
 
 class ImageProcessingService:
     """Service for creating static branded graphics."""
+    
+    def _load_font(self, font_size: int, font_family: str = "Axiforma") -> ImageFont.FreeTypeFont:
+        """Load font with proper fallback chain."""
+        # Try to load Axiforma from various possible locations
+        possible_paths = [
+            # Local assets directory
+            Path(__file__).parent.parent / "assets" / "fonts" / f"{font_family}.ttf",
+            Path(__file__).parent.parent / "assets" / "fonts" / f"{font_family}.otf",
+            Path(__file__).parent.parent / "assets" / "fonts" / f"{font_family.lower()}.ttf",
+            Path(__file__).parent.parent / "assets" / "fonts" / f"{font_family.lower()}.otf",
+            # System fonts (Windows)
+            Path("C:/Windows/Fonts") / f"{font_family}.ttf",
+            Path("C:/Windows/Fonts") / f"{font_family}.otf",
+            Path("C:/Windows/Fonts") / f"{font_family.lower()}.ttf",
+            Path("C:/Windows/Fonts") / f"{font_family.lower()}.otf",
+            # System fonts (macOS)
+            Path("/System/Library/Fonts") / f"{font_family}.ttf",
+            Path("/System/Library/Fonts") / f"{font_family}.otf",
+            Path("/Library/Fonts") / f"{font_family}.ttf",
+            Path("/Library/Fonts") / f"{font_family}.otf",
+            # System fonts (Linux)
+            Path("/usr/share/fonts/truetype") / f"{font_family.lower()}.ttf",
+            Path("/usr/share/fonts/opentype") / f"{font_family.lower()}.otf",
+        ]
+        
+        for font_path in possible_paths:
+            if font_path.exists():
+                try:
+                    font = ImageFont.truetype(str(font_path), font_size)
+                    logger.info(f"Loaded font: {font_path}")
+                    return font
+                except (OSError, IOError) as e:
+                    logger.warning(f"Failed to load font {font_path}: {e}")
+                    continue
+        
+        # Fallback to system fonts
+        try:
+            # Try Arial (common on Windows)
+            font = ImageFont.truetype("arial.ttf", font_size)
+            logger.warning("Using Arial fallback font")
+            return font
+        except (OSError, IOError):
+            try:
+                # Try Helvetica (common on macOS)
+                font = ImageFont.truetype("Helvetica.ttc", font_size)
+                logger.warning("Using Helvetica fallback font")
+                return font
+            except (OSError, IOError):
+                # Final fallback to default
+                logger.warning("Using PIL default font")
+                return ImageFont.load_default()
     
     def create_branded_graphic(
         self,
@@ -121,13 +172,8 @@ class ImageProcessingService:
         # Get font size based on content type
         font_size = brand_specs.font_size_story if content_type == "story" else brand_specs.font_size_post
         
-        # Try to use custom font, fallback to default
-        try:
-            # Note: In production, you'll need to provide font files
-            font = ImageFont.truetype("arial.ttf", font_size)
-        except:
-            logger.warning("Custom font not found, using default")
-            font = ImageFont.load_default()
+        # Try to load Axiforma font
+        font = self._load_font(font_size)
         
         # Get text position based on brand specs
         title_location = (
@@ -167,7 +213,7 @@ class ImageProcessingService:
             bbox = font.getbbox(text)
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
-        except:
+        except (AttributeError, TypeError):
             # Fallback for older PIL versions
             text_width = len(text) * 20
             text_height = 40

@@ -2,7 +2,7 @@
 Pydantic models for API request and response schemas.
 """
 from pydantic import BaseModel, Field
-from typing import Optional, List, Literal
+from typing import Optional, List
 from enum import Enum
 
 
@@ -102,6 +102,8 @@ class ContentGenerationResponse(BaseModel):
     file_format: str = Field(..., description="Output file format (PNG, JPEG, MP4)")
     dimensions: str = Field(..., description="Output dimensions")
     message: Optional[str] = Field(None, description="Additional message or error details")
+    headings: Optional[List[str]] = Field(None, description="All generated headings")
+    descriptions: Optional[List[str]] = Field(None, description="All generated descriptions")
 
 
 class HealthCheckResponse(BaseModel):
