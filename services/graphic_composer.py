@@ -14,19 +14,19 @@ from assets.newspaper_colors import get_newspaper_colors_rgb
 class GraphicComposer:
     """Advanced service for creating branded social media graphics."""
     
-    def _load_font(self, font_size: int, font_family: str = "Axiforma") -> ImageFont.FreeTypeFont:
-        """Load font with proper fallback chain."""
+    def _load_font(self, font_size: int, font_family: str = "Axiforma", weight: str = "Bold") -> ImageFont.FreeTypeFont:
+        """Load font with proper fallback chain, prioritizing Bold weight for headings."""
         # Try to load Axiforma from various possible locations
         possible_paths = [
+            # Local assets directory - Axiforma Complete Family (prioritize Bold)
+            Path(__file__).parent.parent / "assets" / "fonts" / "Axiforma Complete Family" / "Axiforma Complete Family" / f"Kastelov - {font_family} {weight}.otf",
+            Path(__file__).parent.parent / "assets" / "fonts" / "Axiforma Complete Family" / "Axiforma Complete Family" / f"Kastelov - {font_family} Medium.otf",
+            Path(__file__).parent.parent / "assets" / "fonts" / "Axiforma Complete Family" / "Axiforma Complete Family" / f"Kastelov - {font_family} Regular.otf",
             # Local assets directory - direct files
             Path(__file__).parent.parent / "assets" / "fonts" / f"{font_family}.ttf",
             Path(__file__).parent.parent / "assets" / "fonts" / f"{font_family}.otf",
             Path(__file__).parent.parent / "assets" / "fonts" / f"{font_family.lower()}.ttf",
             Path(__file__).parent.parent / "assets" / "fonts" / f"{font_family.lower()}.otf",
-            # Local assets directory - Axiforma Complete Family
-            Path(__file__).parent.parent / "assets" / "fonts" / "Axiforma Complete Family" / "Axiforma Complete Family" / f"Kastelov - {font_family} Regular.otf",
-            Path(__file__).parent.parent / "assets" / "fonts" / "Axiforma Complete Family" / "Axiforma Complete Family" / f"Kastelov - {font_family} Medium.otf",
-            Path(__file__).parent.parent / "assets" / "fonts" / "Axiforma Complete Family" / "Axiforma Complete Family" / f"Kastelov - {font_family} Bold.otf",
             # System fonts (Windows)
             Path("C:/Windows/Fonts") / f"{font_family}.ttf",
             Path("C:/Windows/Fonts") / f"{font_family}.otf",
@@ -117,8 +117,17 @@ class GraphicComposer:
         
         # Load and process background image
         if input_image_path and Path(input_image_path).exists():
+            # For Version 2 (KALEVA style), photo covers entire canvas
+            # For Version 1 (Lapin Kansa style), photo covers top 80%
+            if version == 2:
+                # Version 2: Photo covers entire canvas
             background = self._create_background_layer(input_image_path, target_width, target_height)
             canvas.paste(background, (0, 0))
+            else:
+                # Version 1: Photo covers top 80% (updated from 82%)
+                photo_height = int(target_height * 0.80)
+                background = self._create_background_layer(input_image_path, target_width, photo_height)
+                canvas.paste(background, (0, 0))
         
         # Use layout handlers for different content types and layouts
         from services.layouts import PostLayoutHandler, StoryLayoutHandler, LandscapeLayoutHandler
@@ -271,40 +280,34 @@ class GraphicComposer:
         return canvas
     
     def _add_semi_transparent_overlay(self, canvas: Image.Image, colors: Dict, width: int, height: int) -> Image.Image:
-        """Add semi-transparent overlay transitioning to solid background (Version 1 style)."""
-        # Create overlay covering bottom 2/3 of the image
-        overlay_height = int(height * 0.67)  # 2/3 of canvas height
+        """Add solid newspaper color background covering bottom 20% (Version 1 style)."""
+        # Create overlay covering bottom 20% of the image (solid newspaper color)
+        overlay_height = int(height * 0.20)  # 20% of canvas height
         
-        # Create semi-transparent overlay that transitions to solid
-        overlay = Image.new('RGBA', (width, overlay_height), (0, 0, 0, 0))
-        
-        # Create gradient from transparent to solid newspaper color
-        for y in range(overlay_height):
-            # Calculate alpha value (0 = transparent at top, 255 = solid at bottom)
-            alpha = int(255 * (y / overlay_height))
-            
-            # Create horizontal line with gradient alpha
-            line_color = (*colors["primary"], alpha)
-            for x in range(width):
-                overlay.putpixel((x, y), line_color)
+        # Create solid newspaper color background
+        overlay = Image.new('RGB', (width, overlay_height), colors["primary"])
         
         # Position at bottom
         y_pos = height - overlay_height
         
-        # Paste overlay onto canvas
-        canvas = canvas.convert('RGBA')
-        canvas.paste(overlay, (0, y_pos), overlay)
+        # Paste solid overlay onto canvas
+        canvas.paste(overlay, (0, y_pos))
         
-        return canvas.convert('RGB')
+        return canvas
     
     def _add_newspaper_logo_bottom(self, canvas: Image.Image, newspaper: str, colors: Dict, width: int, height: int) -> Image.Image:
         """Add newspaper logo at bottom center like in the example."""
-        # Calculate logo size and position
+        # Calculate logo size and position with uniform sizing
         logo_height = int(height * 0.08)  # 8% of canvas height
+        max_logo_width = int(width * 0.4)  # Maximum 40% of canvas width for uniform sizing
         
-        # Position at bottom center
+        # Calculate solid color area (bottom 20%)
+        solid_color_height = int(height * 0.20)
+        solid_color_start = height - solid_color_height
+        
+        # Position logo in center of solid color area
         x_center = width // 2
-        y_pos = height - int(height * 0.05) - logo_height  # 5% margin from bottom
+        y_center = solid_color_start + (solid_color_height // 2)  # Center of solid color area
         
         # Try to load newspaper logo
         brand_specs = get_brand_specs(newspaper)
@@ -313,8 +316,18 @@ class GraphicComposer:
             if logo_path.exists():
                 try:
                     logo = Image.open(logo_path)
-                    # Resize logo to fit the height
-                    logo_width = int(logo_height * (logo.width / logo.height))
+                    # Resize logo with uniform sizing constraints
+                    # Calculate aspect ratio
+                    aspect_ratio = logo.width / logo.height
+                    
+                    # Calculate width based on height constraint
+                    logo_width = int(logo_height * aspect_ratio)
+                    
+                    # If width exceeds maximum, scale down proportionally
+                    if logo_width > max_logo_width:
+                        logo_width = max_logo_width
+                        logo_height = int(logo_width / aspect_ratio)
+                    
                     logo = logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
                     
                     # Convert to RGBA if needed for transparency
@@ -324,8 +337,9 @@ class GraphicComposer:
                     # Apply newspaper color template to logo
                     logo = self._apply_color_template(logo, colors)
                     
-                    # Center horizontally
+                    # Center horizontally and vertically in solid color area
                     x_pos = x_center - logo_width // 2
+                    y_pos = y_center - logo_height // 2
                     
                     # Paste logo onto canvas
                     canvas.paste(logo, (x_pos, y_pos), logo)
@@ -339,9 +353,9 @@ class GraphicComposer:
         """Add headline at top of image (Version 2 - KALEVA style)."""
         draw = ImageDraw.Draw(canvas)
         
-        # Position at top center
+        # Position at top center, but lower to avoid campaign banner overlap
         x_center = width // 2
-        y_pos = int(height * 0.1)  # 10% from top
+        y_pos = int(height * 0.25)  # 25% from top (moved down from 18%)
         
         # Get font size from brand specifications
         brand_specs = get_brand_specs(newspaper)
@@ -385,19 +399,25 @@ class GraphicComposer:
             text_x = x_center - text_width // 2
             text_y = start_y + (i * font_size)
             
-            # Use yellow color for Version 2 (like KALEVA example)
-            draw.text((text_x, text_y), line, fill=(255, 255, 0), font=font)  # Yellow
+            # Add text shadow for better readability
+            shadow_offset = 2
+            draw.text((text_x + shadow_offset, text_y + shadow_offset), line, fill=(0, 0, 0), font=font)
+            
+            # Use white color for Version 2 (clearer than yellow)
+            draw.text((text_x, text_y), line, fill=(255, 255, 255), font=font)  # White
         
         return canvas
     
     def _add_newspaper_logo_bottom_left(self, canvas: Image.Image, newspaper: str, colors: Dict, width: int, height: int) -> Image.Image:
         """Add newspaper logo at bottom left (Version 2 - KALEVA style)."""
-        # Calculate logo size and position
-        logo_height = int(height * 0.08)  # 8% of canvas height
+        # Calculate logo size and position with uniform sizing
+        # Make logo reach half of the width but with height constraint
+        logo_width = int(width * 0.5)  # 50% of canvas width
+        max_logo_height = int(height * 0.12)  # Maximum 12% of canvas height
         
         # Position at bottom left
         x_pos = int(width * 0.05)  # 5% margin from left
-        y_pos = height - int(height * 0.05) - logo_height  # 5% margin from bottom
+        y_pos = height - int(height * 0.05) - max_logo_height  # 5% margin from bottom
         
         # Try to load newspaper logo
         brand_specs = get_brand_specs(newspaper)
@@ -406,9 +426,19 @@ class GraphicComposer:
             if logo_path.exists():
                 try:
                     logo = Image.open(logo_path)
-                    # Resize logo to fit the height
-                    logo_width = int(logo_height * (logo.width / logo.height))
-                    logo = logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
+                    # Resize logo with uniform sizing constraints
+                    # Calculate aspect ratio
+                    aspect_ratio = logo.width / logo.height
+                    
+                    # Calculate height based on width constraint
+                    logo_height_calculated = int(logo_width / aspect_ratio)
+                    
+                    # If height exceeds maximum, scale down proportionally
+                    if logo_height_calculated > max_logo_height:
+                        logo_height_calculated = max_logo_height
+                        logo_width = int(logo_height_calculated * aspect_ratio)
+                    
+                    logo = logo.resize((logo_width, logo_height_calculated), Image.Resampling.LANCZOS)
                     
                     # Convert to RGBA if needed for transparency
                     if logo.mode != 'RGBA':
@@ -422,6 +452,29 @@ class GraphicComposer:
                     logger.info(f"Added {newspaper} logo at bottom left to graphic")
                 except Exception as e:
                     logger.warning(f"Failed to load logo for {newspaper}: {e}")
+        
+        # Fallback: Add text-based logo if image logo failed
+        if not (brand_specs and brand_specs.logo_path and Path(brand_specs.logo_path).exists()):
+            # Use newspaper name as text logo
+            font_size = min(logo_height, 24)
+            font = self._load_font(font_size, weight="Bold")
+            
+            # Get text bounding box
+            bbox = draw.textbbox((0, 0), newspaper, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            
+            # Position text logo at bottom left
+            text_x = x_pos
+            text_y = height - int(height * 0.05) - text_height  # 5% margin from bottom
+            
+            # Add text shadow for better readability
+            shadow_offset = 1
+            draw.text((text_x + shadow_offset, text_y + shadow_offset), newspaper, fill=(0, 0, 0), font=font)
+            
+            # Add main text (use newspaper primary color instead of white)
+            draw.text((text_x, text_y), newspaper, fill=colors["primary"], font=font)
+            logger.info(f"Added {newspaper} text logo at bottom left to graphic")
         
         return canvas
     
@@ -469,7 +522,7 @@ class GraphicComposer:
         return colored_logo
     
     def _add_campaign_banner(self, canvas: Image.Image, colors: Dict, content_type: str, width: int, height: int, banner_text: str = None) -> Image.Image:
-        """Add campaign banner with user-entered title."""
+        """Add quarter-circle style campaign banner with user-entered title."""
         draw = ImageDraw.Draw(canvas)
         
         # Use user-entered banner text or default
@@ -490,23 +543,45 @@ class GraphicComposer:
             x_pos = int(width * 0.05)  # 5% margin
             y_pos = int(height * 0.05)  # 5% margin
         
-        # Create banner background
-        banner_rect = [x_pos, y_pos, x_pos + banner_width, y_pos + banner_height]
-        draw.rectangle(banner_rect, fill=colors["primary"])
+        # Create quarter-circle style banner (curved design)
+        # Create a larger circle and crop it to create quarter-circle effect
+        circle_radius = banner_height * 2  # Make circle larger than banner
+        circle_center_x = x_pos + circle_radius
+        circle_center_y = y_pos + circle_radius
+        
+        # Create temporary image for the circle
+        temp_size = circle_radius * 2
+        temp_img = Image.new('RGBA', (temp_size, temp_size), (0, 0, 0, 0))
+        temp_draw = ImageDraw.Draw(temp_img)
+        
+        # Draw full circle
+        circle_bbox = [0, 0, temp_size, temp_size]
+        temp_draw.ellipse(circle_bbox, fill=colors["primary"])
+        
+        # Crop to quarter-circle (top-left quadrant)
+        quarter_circle = temp_img.crop((0, 0, circle_radius, circle_radius))
+        
+        # Paste quarter-circle onto canvas
+        canvas.paste(quarter_circle, (x_pos, y_pos), quarter_circle)
         
         # Add banner text
         font_size = min(banner_height // 2, 24)
-        font = self._load_font(font_size)
+        font = self._load_font(font_size, weight="Bold")  # Use bold for banner text
         
         # Get text bounding box
         bbox = draw.textbbox((0, 0), banner_text, font=font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
         
-        # Center text in banner
-        text_x = x_pos + (banner_width - text_width) // 2
-        text_y = y_pos + (banner_height - text_height) // 2
+        # Position text within the quarter-circle area
+        text_x = x_pos + int(circle_radius * 0.3)  # Position within quarter-circle
+        text_y = y_pos + int(circle_radius * 0.3)  # Position within quarter-circle
         
+        # Add text shadow for better readability
+        shadow_offset = 1
+        draw.text((text_x + shadow_offset, text_y + shadow_offset), banner_text, fill=(0, 0, 0), font=font)
+        
+        # Add main text
         draw.text((text_x, text_y), banner_text, fill=colors["text_light"], font=font)
         
         return canvas
@@ -515,10 +590,10 @@ class GraphicComposer:
         """Add main headline text using brand specifications."""
         draw = ImageDraw.Draw(canvas)
         
-        # Position to overlap photo and background overlay (like in the example)
+        # Position text in lower part of photo area
         x_center = width // 2
-        # Position text so it spans across the transition from photo to background overlay
-        y_center = height - (height // 3) + (height // 6)  # Position in the middle of the overlay area
+        # Position text higher in the photo area (more space from solid color)
+        y_center = int(height * 0.60)  # Position at 60% mark (moved up from 65%)
         
         # Get font size from brand specifications (80px for stories, 60px for posts)
         brand_specs = get_brand_specs(newspaper)
@@ -526,7 +601,7 @@ class GraphicComposer:
             font_size = brand_specs.font_size_story if content_type == "story" else brand_specs.font_size_post
         else:
             # Fallback to canvas-based sizing
-            font_size = min(width // 15, height // 15, 48)
+        font_size = min(width // 15, height // 15, 48)
         
         font = self._load_font(font_size)
         
@@ -563,6 +638,10 @@ class GraphicComposer:
             text_x = x_center - text_width // 2
             text_y = start_y + (i * font_size)
             
+            # Add text shadow for better readability
+            shadow_offset = 2
+            draw.text((text_x + shadow_offset, text_y + shadow_offset), line, fill=(0, 0, 0), font=font)
+            
             # Add main text with clear visibility
             draw.text((text_x, text_y), line, fill=(255, 255, 255), font=font)
         
@@ -573,7 +652,7 @@ class GraphicComposer:
 
 
     def _add_campaign_banner_story(self, canvas: Image.Image, colors: Dict, content_type: str, width: int, height: int, banner_text: str = None) -> Image.Image:
-        """Add campaign banner in upper-right for stories."""
+        """Add quarter-circle style campaign banner in upper-right for stories."""
         draw = ImageDraw.Draw(canvas)
         
         # Use user-entered banner text or default
@@ -588,23 +667,43 @@ class GraphicComposer:
         x_pos = width - banner_width - int(width * 0.05)  # 5% margin from right
         y_pos = int(height * 0.05)  # 5% margin from top
         
-        # Create banner background
-        banner_rect = [x_pos, y_pos, x_pos + banner_width, y_pos + banner_height]
-        draw.rectangle(banner_rect, fill=colors["primary"])
+        # Create quarter-circle style banner (curved design)
+        # Create a larger circle and crop it to create quarter-circle effect
+        circle_radius = banner_height * 2  # Make circle larger than banner
+        
+        # Create temporary image for the circle
+        temp_size = circle_radius * 2
+        temp_img = Image.new('RGBA', (temp_size, temp_size), (0, 0, 0, 0))
+        temp_draw = ImageDraw.Draw(temp_img)
+        
+        # Draw full circle
+        circle_bbox = [0, 0, temp_size, temp_size]
+        temp_draw.ellipse(circle_bbox, fill=colors["primary"])
+        
+        # Crop to quarter-circle (top-right quadrant for stories)
+        quarter_circle = temp_img.crop((circle_radius, 0, temp_size, circle_radius))
+        
+        # Paste quarter-circle onto canvas
+        canvas.paste(quarter_circle, (x_pos, y_pos), quarter_circle)
         
         # Add banner text
         font_size = min(banner_height // 2, 24)
-        font = self._load_font(font_size)
+        font = self._load_font(font_size, weight="Bold")  # Use bold for banner text
         
         # Get text bounding box
         bbox = draw.textbbox((0, 0), banner_text, font=font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
         
-        # Center text in banner
-        text_x = x_pos + (banner_width - text_width) // 2
-        text_y = y_pos + (banner_height - text_height) // 2
+        # Position text within the quarter-circle area
+        text_x = x_pos + int(circle_radius * 0.3)  # Position within quarter-circle
+        text_y = y_pos + int(circle_radius * 0.3)  # Position within quarter-circle
         
+        # Add text shadow for better readability
+        shadow_offset = 1
+        draw.text((text_x + shadow_offset, text_y + shadow_offset), banner_text, fill=(0, 0, 0), font=font)
+        
+        # Add main text
         draw.text((text_x, text_y), banner_text, fill=colors["text_light"], font=font)
         
         return canvas
@@ -694,9 +793,9 @@ class GraphicComposer:
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
         
-        # Center text in banner
-        text_x = x_pos + (banner_width - text_width) // 2
-        text_y = y_pos + (banner_height - text_height) // 2
+        # Position text within the quarter-circle area
+        text_x = x_pos + int(circle_radius * 0.3)  # Position within quarter-circle
+        text_y = y_pos + int(circle_radius * 0.3)  # Position within quarter-circle
         
         draw.text((text_x, text_y), banner_text, fill=colors["text_light"], font=font)
         

@@ -29,7 +29,7 @@ BRAND_SPECIFICATIONS: Dict[str, BrandSpecs] = {
         font_family="Axiforma",
         font_color="#FFFFFF",  # White
         font_size_story=80,
-        font_size_post=60,
+        font_size_post=70,
         title_location_post="top-left",
         title_location_story="top-right"
     ),
@@ -41,7 +41,7 @@ BRAND_SPECIFICATIONS: Dict[str, BrandSpecs] = {
         font_family="Axiforma",
         font_color="#FFFFFF",
         font_size_story=80,
-        font_size_post=60,
+        font_size_post=70,
         title_location_post="top-left",
         title_location_story="top-right"
     ),
@@ -53,7 +53,7 @@ BRAND_SPECIFICATIONS: Dict[str, BrandSpecs] = {
         font_family="Axiforma",
         font_color="#FFFFFF",
         font_size_story=80,
-        font_size_post=60,
+        font_size_post=70,
         title_location_post="top-left",
         title_location_story="top-right"
     ),
@@ -65,7 +65,7 @@ BRAND_SPECIFICATIONS: Dict[str, BrandSpecs] = {
         font_family="Axiforma",
         font_color="#FFFFFF",
         font_size_story=80,
-        font_size_post=60,
+        font_size_post=70,
         title_location_post="top-left",
         title_location_story="top-right"
     ),
@@ -77,7 +77,7 @@ BRAND_SPECIFICATIONS: Dict[str, BrandSpecs] = {
         font_family="Axiforma",
         font_color="#FFFFFF",
         font_size_story=80,
-        font_size_post=60,
+        font_size_post=70,
         title_location_post="top-left",
         title_location_story="top-right"
     ),
@@ -89,7 +89,7 @@ BRAND_SPECIFICATIONS: Dict[str, BrandSpecs] = {
         font_family="Axiforma",
         font_color="#FFFFFF",
         font_size_story=80,
-        font_size_post=60,
+        font_size_post=70,
         title_location_post="top-left",
         title_location_story="top-right"
     ),
@@ -101,7 +101,7 @@ BRAND_SPECIFICATIONS: Dict[str, BrandSpecs] = {
         font_family="Axiforma",
         font_color="#FFFFFF",
         font_size_story=80,
-        font_size_post=60,
+        font_size_post=70,
         title_location_post="top-left",
         title_location_story="top-right"
     ),
@@ -113,7 +113,7 @@ BRAND_SPECIFICATIONS: Dict[str, BrandSpecs] = {
         font_family="Axiforma",
         font_color="#FFFFFF",
         font_size_story=80,
-        font_size_post=60,
+        font_size_post=70,
         title_location_post="top-left",
         title_location_story="top-right"
     ),
@@ -125,7 +125,7 @@ BRAND_SPECIFICATIONS: Dict[str, BrandSpecs] = {
         font_family="Axiforma",
         font_color="#FFFFFF",
         font_size_story=80,
-        font_size_post=60,
+        font_size_post=70,
         title_location_post="top-left",
         title_location_story="top-right"
     ),
