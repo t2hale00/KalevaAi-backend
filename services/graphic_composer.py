@@ -121,8 +121,8 @@ class GraphicComposer:
             # For Version 1 (Lapin Kansa style), photo covers top 80%
             if version == 2:
                 # Version 2: Photo covers entire canvas
-            background = self._create_background_layer(input_image_path, target_width, target_height)
-            canvas.paste(background, (0, 0))
+                background = self._create_background_layer(input_image_path, target_width, target_height)
+                canvas.paste(background, (0, 0))
             else:
                 # Version 1: Photo covers top 80% (updated from 82%)
                 photo_height = int(target_height * 0.80)
@@ -298,16 +298,17 @@ class GraphicComposer:
     def _add_newspaper_logo_bottom(self, canvas: Image.Image, newspaper: str, colors: Dict, width: int, height: int) -> Image.Image:
         """Add newspaper logo at bottom center like in the example."""
         # Calculate logo size and position with uniform sizing
-        logo_height = int(height * 0.08)  # 8% of canvas height
-        max_logo_width = int(width * 0.4)  # Maximum 40% of canvas width for uniform sizing
+        logo_height = int(height * 0.12)  # 12% of canvas height (increased from 8%)
+        max_logo_width = int(width * 0.5)  # Maximum 50% of canvas width for uniform sizing (increased from 40%)
         
         # Calculate solid color area (bottom 20%)
         solid_color_height = int(height * 0.20)
         solid_color_start = height - solid_color_height
         
-        # Position logo in center of solid color area
+        # Position logo in top area of solid color section
         x_center = width // 2
-        y_center = solid_color_start + (solid_color_height // 2)  # Center of solid color area
+        # Move logo to top 1/3 of solid color area (moved up from 1/4)
+        y_center = solid_color_start + (solid_color_height // 3)  # Top 1/3 of solid color
         
         # Try to load newspaper logo
         brand_specs = get_brand_specs(newspaper)
@@ -593,17 +594,21 @@ class GraphicComposer:
         # Position text in lower part of photo area
         x_center = width // 2
         # Position text higher in the photo area (more space from solid color)
-        y_center = int(height * 0.60)  # Position at 60% mark (moved up from 65%)
+        y_center = int(height * 0.50)  # Position at 50% mark (moved up from 55%)
         
         # Get font size from brand specifications (80px for stories, 60px for posts)
         brand_specs = get_brand_specs(newspaper)
         if brand_specs:
             font_size = brand_specs.font_size_story if content_type == "story" else brand_specs.font_size_post
+            # Increase font size for stories to make it bigger and bolder
+            if content_type == "story":
+                font_size = int(font_size * 1.2)  # 20% larger for stories
         else:
             # Fallback to canvas-based sizing
-        font_size = min(width // 15, height // 15, 48)
+            font_size = min(width // 15, height // 15, 48)
         
-        font = self._load_font(font_size)
+        # Load bold font for better visibility
+        font = self._load_font(font_size, weight="Bold")
         
         # Wrap text if needed
         words = text.split()

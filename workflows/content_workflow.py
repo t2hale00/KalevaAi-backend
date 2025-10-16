@@ -80,41 +80,60 @@ class ContentWorkflow:
                 logger.warning("No image provided, using placeholder")
                 # Variables already initialized above
             elif request.output_type.value == "static":
-                # Generate multiple static graphics (2 headings × 2 descriptions = 4 graphics)
-                logger.info("Step 2: Generating multiple static graphics")
+                # Generate 2 static graphics (one per heading version)
+                logger.info("Step 2: Generating 2 static graphics")
                 
-                # Determine campaign type based on banner data
-                campaign_type = "logo_only"  # Always show logo
+                # Determine campaign type and banner text based on banner data
+                campaign_type = "logo_only"  # Default: only show logo
+                banner_text = None
                 if banner_data and banner_data.get("add_banner") and banner_data.get("banner_name"):
                     campaign_type = banner_data["banner_name"]
-                
+                    banner_text = banner_data["banner_name"]  # User-entered campaign title
+
                 graphic_urls = []
                 graphic_count = 0
                 
-                for i, heading in enumerate(headings):
-                    for j, description in enumerate(descriptions):
-                        graphic_count += 1
-                        output_filename = f"{task_id}_v{graphic_count}.png"
-                        output_path = str(self.output_dir / output_filename)
+                # Determine how many versions to generate
+                if request.layout.value in ["portrait", "square"]:
+                    # Portrait/Square Posts and Stories: Generate 2 different visual versions
+                    versions_to_generate = [1, 2]
+                elif request.layout.value == "landscape":
+                    # Landscape Posts and Stories: Generate 2 versions (same layout, different headings)
+                    versions_to_generate = [1, 2]
+                else:
+                    # Fallback: Generate single version
+                    versions_to_generate = [1]
+                
+                # Generate graphics
+                for version in versions_to_generate:
+                    graphic_count += 1
+                    output_filename = f"{task_id}_v{graphic_count}.png"
+                    output_path = str(self.output_dir / output_filename)
+                    
+                    # Use different heading for each version
+                    heading = headings[version-1] if version-1 < len(headings) else headings[0] if headings else "Generated Heading"
+                    description = descriptions[version-1] if version-1 < len(descriptions) else descriptions[0] if descriptions else "Generated Description"
+                    
+                    try:
+                        graphic_composer.create_branded_social_graphic(
+                            input_image_path=image_path,
+                            heading_text=heading,
+                            description_text=description,
+                            newspaper=request.newspaper.value,
+                            platform=request.platform.value,
+                            content_type=request.content_type.value,
+                            layout=request.layout.value,
+                            output_path=output_path,
+                            campaign_type=campaign_type,
+                            version=version,
+                            banner_text=banner_text
+                        )
                         
-                        try:
-                            graphic_composer.create_branded_social_graphic(
-                                input_image_path=image_path,
-                                heading_text=heading,
-                                description_text=description,
-                                newspaper=request.newspaper.value,
-                                platform=request.platform.value,
-                                content_type=request.content_type.value,
-                                layout=request.layout.value,
-                                output_path=output_path,
-                                campaign_type=campaign_type
-                            )
-                            
-                            graphic_urls.append(f"/api/download/{output_filename}")
-                            logger.info(f"Generated graphic {graphic_count}: {output_filename}")
-                            
-                        except Exception as e:
-                            logger.error(f"Error generating graphic {graphic_count}: {e}")
+                        graphic_urls.append(f"/api/download/{output_filename}")
+                        logger.info(f"Generated graphic version {version}: {output_filename}")
+                        
+                    except Exception as e:
+                        logger.error(f"Error generating graphic version {version}: {e}")
                 
                 # Return all graphic URLs
                 graphic_url = graphic_urls[0] if graphic_urls else None
