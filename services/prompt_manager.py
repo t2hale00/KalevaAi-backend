@@ -150,3 +150,4 @@ class PromptManager:
 # Create singleton instance
 prompt_manager = PromptManager()
 
+

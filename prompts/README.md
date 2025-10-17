@@ -113,3 +113,4 @@ All prompts support these template variables:
 4. **Finnish Language**: All prompts are optimized for Finnish-speaking audiences
 5. **Brand Consistency**: Maintain consistent branding across all platforms while adapting to platform norms
 
+

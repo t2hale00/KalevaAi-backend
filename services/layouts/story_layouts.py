@@ -48,7 +48,7 @@ class StoryLayoutHandler:
         canvas = self.graphic_composer._add_newspaper_background_overlay(canvas, colors, width, height)
         
         # Add newspaper logo at bottom center
-        canvas = self.graphic_composer._add_newspaper_logo_bottom(canvas, newspaper, colors, width, height)
+        canvas = self.graphic_composer._add_newspaper_logo_bottom_story(canvas, newspaper, colors, width, height)
         
         # Add main headline (overlapping photo and background)
         canvas = self.graphic_composer._add_headline(canvas, heading_text, width, height, newspaper, content_type)
@@ -67,6 +67,6 @@ class StoryLayoutHandler:
         canvas = self.graphic_composer._add_headline_centered(canvas, heading_text, width, height, newspaper, content_type)
         
         # Add newspaper logo at bottom center
-        canvas = self.graphic_composer._add_newspaper_logo_bottom(canvas, newspaper, colors, width, height)
+        canvas = self.graphic_composer._add_newspaper_logo_bottom_story(canvas, newspaper, colors, width, height)
         
         return canvas

@@ -19,27 +19,27 @@ class LandscapeLayoutHandler:
     
     def create_landscape_post(self, canvas: Image.Image, heading_text: str, newspaper: str, 
                             content_type: str, campaign_type: str, colors: Dict, 
-                            width: int, height: int, banner_text: str = None) -> Image.Image:
-        """Create Landscape post with split-screen design."""
+                            width: int, height: int, version: int = 2, banner_text: str = None) -> Image.Image:
+        """Create Landscape post with split-screen design (v1: left panel, v2: right panel)."""
         # Add campaign banner only if specified (upper-left of photo section)
         if campaign_type != "logo_only":
-            canvas = self.graphic_composer._add_campaign_banner_landscape(canvas, colors, content_type, width, height, banner_text)
+            canvas = self.graphic_composer._add_campaign_banner_landscape(canvas, colors, content_type, width, height, banner_text, version)
         
         # Create split-screen layout
-        canvas = self.graphic_composer._create_split_screen_layout(canvas, colors, width, height)
+        canvas = self.graphic_composer._create_split_screen_layout(canvas, colors, width, height, version)
         
-        # Add headline on solid color panel (right side)
-        canvas = self.graphic_composer._add_headline_landscape(canvas, heading_text, width, height, newspaper, content_type)
+        # Add headline on solid color panel
+        canvas = self.graphic_composer._add_headline_landscape(canvas, heading_text, width, height, newspaper, content_type, version)
         
-        # Add newspaper logo on solid color panel (right side, bottom)
-        canvas = self.graphic_composer._add_newspaper_logo_landscape(canvas, newspaper, colors, width, height)
+        # Add newspaper logo on solid color panel
+        canvas = self.graphic_composer._add_newspaper_logo_landscape(canvas, newspaper, colors, width, height, version)
         
         return canvas
     
     def create_landscape_story(self, canvas: Image.Image, heading_text: str, newspaper: str, 
                              content_type: str, campaign_type: str, colors: Dict, 
-                             width: int, height: int, banner_text: str = None) -> Image.Image:
+                             width: int, height: int, version: int = 2, banner_text: str = None) -> Image.Image:
         """Create Landscape story with split-screen design (same as post)."""
         # Landscape stories use the same layout as landscape posts
         return self.create_landscape_post(canvas, heading_text, newspaper, content_type, 
-                                        campaign_type, colors, width, height, banner_text)
+                                        campaign_type, colors, width, height, version, banner_text)

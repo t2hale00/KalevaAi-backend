@@ -117,17 +117,28 @@ class GraphicComposer:
         
         # Load and process background image
         if input_image_path and Path(input_image_path).exists():
-            # For Version 2 (KALEVA style), photo covers entire canvas
-            # For Version 1 (Lapin Kansa style), photo covers top 80%
-            if version == 2:
-                # Version 2: Photo covers entire canvas
-                background = self._create_background_layer(input_image_path, target_width, target_height)
-                canvas.paste(background, (0, 0))
+            if layout == "landscape":
+                # For landscape layouts, photo takes 3/5 of width
+                photo_width = int(target_width * 0.6)  # 3/5 of width
+                background = self._create_background_layer(input_image_path, photo_width, target_height)
+                
+                if version == 1:
+                    # Version 1: Photo on the right (solid panel on left)
+                    canvas.paste(background, (int(target_width * 0.4), 0))  # Start at 2/5 position
+                else:
+                    # Version 2: Photo on the left (solid panel on right)
+                    canvas.paste(background, (0, 0))
             else:
-                # Version 1: Photo covers top 80% (updated from 82%)
-                photo_height = int(target_height * 0.80)
-                background = self._create_background_layer(input_image_path, target_width, photo_height)
-                canvas.paste(background, (0, 0))
+                # For portrait/square layouts
+                if version == 2:
+                    # Version 2: Photo covers entire canvas
+                    background = self._create_background_layer(input_image_path, target_width, target_height)
+                    canvas.paste(background, (0, 0))
+                else:
+                    # Version 1: Photo covers top 80% (updated from 82%)
+                    photo_height = int(target_height * 0.80)
+                    background = self._create_background_layer(input_image_path, target_width, photo_height)
+                    canvas.paste(background, (0, 0))
         
         # Use layout handlers for different content types and layouts
         from services.layouts import PostLayoutHandler, StoryLayoutHandler, LandscapeLayoutHandler
@@ -146,13 +157,13 @@ class GraphicComposer:
                                                           campaign_type, colors, target_width, target_height, version, banner_text)
             else:  # landscape
                 canvas = story_handler.create_landscape_story(canvas, heading_text, newspaper, content_type, 
-                                                            campaign_type, colors, target_width, target_height, banner_text)
+                                                            campaign_type, colors, target_width, target_height, version, banner_text)
         
         elif layout == "landscape":
             # Use LandscapeLayoutHandler for landscape posts
             landscape_handler = LandscapeLayoutHandler(self)
             canvas = landscape_handler.create_landscape_post(canvas, heading_text, newspaper, content_type, 
-                                                           campaign_type, colors, target_width, target_height)
+                                                          campaign_type, colors, target_width, target_height, version, banner_text)
         
         # Save the final image
         canvas.save(output_path, quality=95, optimize=True)
@@ -295,8 +306,8 @@ class GraphicComposer:
         
         return canvas
     
-    def _add_newspaper_logo_bottom(self, canvas: Image.Image, newspaper: str, colors: Dict, width: int, height: int) -> Image.Image:
-        """Add newspaper logo at bottom center like in the example."""
+    def _add_newspaper_logo_bottom_story(self, canvas: Image.Image, newspaper: str, colors: Dict, width: int, height: int) -> Image.Image:
+        """Add newspaper logo at bottom center for stories (higher positioning)."""
         # Calculate logo size and position with uniform sizing
         logo_height = int(height * 0.12)  # 12% of canvas height (increased from 8%)
         max_logo_width = int(width * 0.5)  # Maximum 50% of canvas width for uniform sizing (increased from 40%)
@@ -305,10 +316,140 @@ class GraphicComposer:
         solid_color_height = int(height * 0.20)
         solid_color_start = height - solid_color_height
         
-        # Position logo in top area of solid color section
+        # Position logo in top area of solid color section (stories only)
         x_center = width // 2
-        # Move logo to top 1/3 of solid color area (moved up from 1/4)
-        y_center = solid_color_start + (solid_color_height // 3)  # Top 1/3 of solid color
+        # Move logo to top 1/5 of solid color area for stories (higher positioning)
+        y_center = solid_color_start + (solid_color_height // 5)  # Top 1/5 of solid color
+        
+        # Try to load newspaper logo
+        brand_specs = get_brand_specs(newspaper)
+        if brand_specs and brand_specs.logo_path:
+            logo_path = Path(brand_specs.logo_path)
+            if logo_path.exists():
+                try:
+                    logo = Image.open(logo_path)
+                    # Resize logo with uniform sizing constraints
+                    # Calculate aspect ratio
+                    aspect_ratio = logo.width / logo.height
+                    
+                    # Calculate width based on height constraint
+                    logo_width = int(logo_height * aspect_ratio)
+                    
+                    # If width exceeds maximum, scale down proportionally
+                    if logo_width > max_logo_width:
+                        logo_width = max_logo_width
+                        logo_height = int(logo_width / aspect_ratio)
+                    
+                    logo = logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
+                    
+                    # Convert to RGBA if needed for transparency
+                    if logo.mode != 'RGBA':
+                        logo = logo.convert('RGBA')
+                    
+                    # Apply newspaper color template to logo
+                    logo = self._apply_color_template(logo, colors)
+                    
+                    # Paste logo onto canvas
+                    canvas.paste(logo, (x_center - logo.width // 2, y_center - logo.height // 2), logo)
+                    logger.info(f"Added {newspaper} logo at bottom center to story graphic")
+                except Exception as e:
+                    logger.warning(f"Failed to load logo for {newspaper}: {e}")
+        
+        # Fallback: Add text-based logo if image logo failed
+        if not (brand_specs and brand_specs.logo_path and Path(brand_specs.logo_path).exists()):
+            # Use newspaper name as text logo
+            font_size = min(logo_height, 24)
+            font = self._load_font(font_size, weight="Bold")
+            
+            # Get text bounding box
+            bbox = draw.textbbox((0, 0), newspaper, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            
+            # Position text logo in center of solid color area
+            text_x = x_center - text_width // 2
+            text_y = y_center - text_height // 2
+            
+            # Add text shadow for better readability
+            shadow_offset = 1
+            draw.text((text_x + shadow_offset, text_y + shadow_offset), newspaper, fill=(0, 0, 0), font=font)
+            
+            # Add main text
+            draw.text((text_x, text_y), newspaper, fill=colors["text_light"], font=font)
+            logger.info(f"Added {newspaper} text logo at bottom center to story graphic")
+        
+    def _add_newspaper_logo_bottom(self, canvas: Image.Image, newspaper: str, colors: Dict, width: int, height: int) -> Image.Image:
+        """Add newspaper logo at bottom center like in the example."""
+        # Calculate logo size and position with uniform sizing
+        logo_height = int(height * 0.08)  # 8% of canvas height (original size for posts)
+        max_logo_width = int(width * 0.4)  # Maximum 40% of canvas width for uniform sizing (original for posts)
+        
+        # Calculate solid color area (bottom 20%)
+        solid_color_height = int(height * 0.20)
+        solid_color_start = height - solid_color_height
+        
+        # Position logo in center of solid color area (original positioning for posts)
+        x_center = width // 2
+        y_center = solid_color_start + (solid_color_height // 2)  # Center of solid color area
+        
+        # Try to load newspaper logo
+        brand_specs = get_brand_specs(newspaper)
+        if brand_specs and brand_specs.logo_path:
+            logo_path = Path(brand_specs.logo_path)
+            if logo_path.exists():
+                try:
+                    logo = Image.open(logo_path)
+                    # Resize logo with uniform sizing constraints
+                    # Calculate aspect ratio
+                    aspect_ratio = logo.width / logo.height
+                    
+                    # Calculate width based on height constraint
+                    logo_width = int(logo_height * aspect_ratio)
+                    
+                    # If width exceeds maximum, scale down proportionally
+                    if logo_width > max_logo_width:
+                        logo_width = max_logo_width
+                        logo_height = int(logo_width / aspect_ratio)
+                    
+                    logo = logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
+                    
+                    # Convert to RGBA if needed for transparency
+                    if logo.mode != 'RGBA':
+                        logo = logo.convert('RGBA')
+                    
+                    # Apply newspaper color template to logo
+                    logo = self._apply_color_template(logo, colors)
+                    
+                    # Paste logo onto canvas
+                    canvas.paste(logo, (x_center - logo.width // 2, y_center - logo.height // 2), logo)
+                    logger.info(f"Added {newspaper} logo at bottom center to graphic")
+                except Exception as e:
+                    logger.warning(f"Failed to load logo for {newspaper}: {e}")
+        
+        # Fallback: Add text-based logo if image logo failed
+        if not (brand_specs and brand_specs.logo_path and Path(brand_specs.logo_path).exists()):
+            # Use newspaper name as text logo
+            font_size = min(logo_height, 24)
+            font = self._load_font(font_size, weight="Bold")
+            
+            # Get text bounding box
+            bbox = draw.textbbox((0, 0), newspaper, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            
+            # Position text logo in center of solid color area
+            text_x = x_center - text_width // 2
+            text_y = y_center - text_height // 2
+            
+            # Add text shadow for better readability
+            shadow_offset = 1
+            draw.text((text_x + shadow_offset, text_y + shadow_offset), newspaper, fill=(0, 0, 0), font=font)
+            
+            # Add main text
+            draw.text((text_x, text_y), newspaper, fill=colors["text_light"], font=font)
+            logger.info(f"Added {newspaper} text logo at bottom center to graphic")
+        
+        return canvas
         
         # Try to load newspaper logo
         brand_specs = get_brand_specs(newspaper)
@@ -593,8 +734,11 @@ class GraphicComposer:
         
         # Position text in lower part of photo area
         x_center = width // 2
-        # Position text higher in the photo area (more space from solid color)
-        y_center = int(height * 0.50)  # Position at 50% mark (moved up from 55%)
+        # Position text based on content type
+        if content_type == "story":
+            y_center = int(height * 0.50)  # Stories: Position at 50% mark
+        else:
+            y_center = int(height * 0.60)  # Posts: Position at 60% mark (higher)
         
         # Get font size from brand specifications (80px for stories, 60px for posts)
         brand_specs = get_brand_specs(newspaper)
@@ -768,7 +912,7 @@ class GraphicComposer:
         
         return canvas
     
-    def _add_campaign_banner_landscape(self, canvas: Image.Image, colors: Dict, content_type: str, width: int, height: int, banner_text: str = None) -> Image.Image:
+    def _add_campaign_banner_landscape(self, canvas: Image.Image, colors: Dict, content_type: str, width: int, height: int, banner_text: str = None, version: int = 2) -> Image.Image:
         """Add campaign banner in upper-left of photo section for landscape."""
         draw = ImageDraw.Draw(canvas)
         
@@ -780,9 +924,17 @@ class GraphicComposer:
         banner_height = int(height * 0.08)  # 8% of canvas height
         banner_width = int(width * 0.25)   # 25% of canvas width (smaller for landscape)
         
-        # Position in upper-left of photo section (left ~70% of canvas)
-        photo_width = int(width * 0.7)  # Photo takes ~70% of width
-        x_pos = int(photo_width * 0.05)  # 5% margin from left edge of photo section
+        # Position in upper-left of photo section
+        panel_width = int(width * 0.4)  # 2/5 of width for solid color panel
+        photo_width = width - panel_width  # Remaining 3/5 for photo
+        
+        if version == 1:
+            # Version 1: Photo is on the right, banner goes in upper-left of photo section
+            x_pos = photo_width + int(photo_width * 0.05)  # 5% margin from left edge of photo section
+        else:
+            # Version 2: Photo is on the left, banner goes in upper-left of photo section
+            x_pos = int(photo_width * 0.05)  # 5% margin from left edge of photo section
+        
         y_pos = int(height * 0.05)  # 5% margin from top
         
         # Create banner background
@@ -793,51 +945,65 @@ class GraphicComposer:
         font_size = min(banner_height // 2, 20)
         font = self._load_font(font_size)
         
-        # Get text bounding box
+        # Get text bounding box and center it in banner
         bbox = draw.textbbox((0, 0), banner_text, font=font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
         
-        # Position text within the quarter-circle area
-        text_x = x_pos + int(circle_radius * 0.3)  # Position within quarter-circle
-        text_y = y_pos + int(circle_radius * 0.3)  # Position within quarter-circle
+        # Center text within banner
+        text_x = x_pos + (banner_width - text_width) // 2
+        text_y = y_pos + (banner_height - text_height) // 2
         
         draw.text((text_x, text_y), banner_text, fill=colors["text_light"], font=font)
         
         return canvas
     
-    def _create_split_screen_layout(self, canvas: Image.Image, colors: Dict, width: int, height: int) -> Image.Image:
-        """Create split-screen layout with solid color panel on right."""
+    def _create_split_screen_layout(self, canvas: Image.Image, colors: Dict, width: int, height: int, version: int = 2) -> Image.Image:
+        """Create split-screen layout with solid color panel on left (v1) or right (v2)."""
         draw = ImageDraw.Draw(canvas)
         
-        # Calculate split positions
-        photo_width = int(width * 0.7)  # Photo takes ~70% of width
-        panel_width = width - photo_width  # Solid color panel takes remaining ~30%
+        # Calculate split positions - solid color takes 2/5, photo takes 3/5
+        panel_width = int(width * 0.4)  # 2/5 of width for solid color panel
+        photo_width = width - panel_width  # Remaining 3/5 for photo
         
-        # Create solid color panel on the right
-        panel_rect = [photo_width, 0, width, height]
+        if version == 1:
+            # Version 1: Solid color panel on the left
+            panel_rect = [0, 0, panel_width, height]
+        else:
+            # Version 2: Solid color panel on the right (default)
+            panel_rect = [photo_width, 0, width, height]
+        
         draw.rectangle(panel_rect, fill=colors["primary"])
         
         return canvas
     
-    def _add_headline_landscape(self, canvas: Image.Image, text: str, width: int, height: int, newspaper: str, content_type: str) -> Image.Image:
-        """Add headline on solid color panel (right side) for landscape."""
+    def _add_headline_landscape(self, canvas: Image.Image, text: str, width: int, height: int, newspaper: str, content_type: str, version: int = 2) -> Image.Image:
+        """Add headline on solid color panel for landscape (left for v1, right for v2)."""
         draw = ImageDraw.Draw(canvas)
         
-        # Calculate panel positions
-        photo_width = int(width * 0.7)  # Photo takes ~70% of width
-        panel_width = width - photo_width  # Solid color panel takes remaining ~30%
+        # Calculate panel positions - solid color takes 2/5, photo takes 3/5
+        panel_width = int(width * 0.4)  # 2/5 of width for solid color panel
+        photo_width = width - panel_width  # Remaining 3/5 for photo
         
         # Position on solid color panel
-        x_center = photo_width + (panel_width // 2)  # Center of right panel
-        y_pos = int(height * 0.2)  # 20% from top
+        if version == 1:
+            # Version 1: Solid color panel on the left
+            x_center = panel_width // 2  # Center of left panel
+        else:
+            # Version 2: Solid color panel on the right
+            x_center = photo_width + (panel_width // 2)  # Center of right panel
+        
+        y_pos = int(height * 0.15)  # 15% from top (moved up to give more space)
         
         # Get font size from brand specifications
         brand_specs = get_brand_specs(newspaper)
         if brand_specs:
-            font_size = brand_specs.font_size_story if content_type == "story" else brand_specs.font_size_post
+            # Use larger font sizes for landscape layout
+            base_font_size = brand_specs.font_size_story if content_type == "story" else brand_specs.font_size_post
+            font_size = min(base_font_size, panel_width // 8, height // 12, 48)
         else:
-            font_size = min(panel_width // 8, height // 15, 48)
+            # Larger default font size for landscape
+            font_size = min(panel_width // 8, height // 12, 48)
         
         font = self._load_font(font_size)
         
@@ -864,29 +1030,36 @@ class GraphicComposer:
         if current_line:
             lines.append(" ".join(current_line))
         
-        # Draw each line
+        # Draw each line with better spacing
+        line_spacing = int(font_size * 0.2)  # 20% of font size for line spacing
         for i, line in enumerate(lines):
             bbox = draw.textbbox((0, 0), line, font=font)
             text_width = bbox[2] - bbox[0]
             text_x = x_center - text_width // 2
-            text_y = y_pos + (i * font_size)
+            text_y = y_pos + (i * (font_size + line_spacing))
             
             # Use white color for landscape
             draw.text((text_x, text_y), line, fill=(255, 255, 255), font=font)
         
         return canvas
     
-    def _add_newspaper_logo_landscape(self, canvas: Image.Image, newspaper: str, colors: Dict, width: int, height: int) -> Image.Image:
-        """Add newspaper logo on solid color panel (right side, bottom) for landscape."""
-        # Calculate panel positions
-        photo_width = int(width * 0.7)  # Photo takes ~70% of width
-        panel_width = width - photo_width  # Solid color panel takes remaining ~30%
+    def _add_newspaper_logo_landscape(self, canvas: Image.Image, newspaper: str, colors: Dict, width: int, height: int, version: int = 2) -> Image.Image:
+        """Add newspaper logo on solid color panel for landscape (left for v1, right for v2)."""
+        # Calculate panel positions - solid color takes 2/5, photo takes 3/5
+        panel_width = int(width * 0.4)  # 2/5 of width for solid color panel
+        photo_width = width - panel_width  # Remaining 3/5 for photo
         
-        # Calculate logo size and position
-        logo_height = int(height * 0.08)  # 8% of canvas height
+        # Calculate logo size and position - larger for better visibility
+        logo_height = int(height * 0.08)  # 8% of canvas height (increased from 5%)
         
         # Position at bottom of solid color panel
-        x_center = photo_width + (panel_width // 2)  # Center of right panel
+        if version == 1:
+            # Version 1: Solid color panel on the left
+            x_center = panel_width // 2  # Center of left panel
+        else:
+            # Version 2: Solid color panel on the right
+            x_center = photo_width + (panel_width // 2)  # Center of right panel
+        
         y_pos = height - int(height * 0.1) - logo_height  # 10% margin from bottom
         
         # Try to load newspaper logo
