@@ -20,16 +20,16 @@ class TextGenerationService:
             self.model = None
         else:
             genai.configure(api_key=settings.GEMINI_API_KEY)
+            logger.info(f"Initializing Gemini model: {settings.GEMINI_MODEL}")
             # Use the stable API version
             self.model = genai.GenerativeModel(
                 model_name=settings.GEMINI_MODEL,
                 generation_config=genai.types.GenerationConfig(
-                    temperature=0.7,
-                    top_p=0.8,
-                    top_k=40,
-                    max_output_tokens=1024,
+                    temperature=0.0,
+                    max_output_tokens=None,
                 )
             )
+            logger.info(f"Gemini model initialized successfully: {settings.GEMINI_MODEL}")
     
     def generate_text(
         self,
@@ -71,7 +71,29 @@ class TextGenerationService:
                 )
                 
                 response = self.model.generate_content(prompt)
-                results = self._parse_multiple_versions(response.text)
+                
+                # Handle different possible response formats
+                response_text = None
+                if hasattr(response, 'text'):
+                    try:
+                        response_text = response.text
+                    except Exception:
+                        # response.text might fail for complex responses
+                        pass
+                
+                if not response_text and hasattr(response, 'candidates') and len(response.candidates) > 0:
+                    # Alternative response format
+                    response_text = response.candidates[0].content.parts[0].text
+                elif not response_text and isinstance(response, str):
+                    response_text = response
+                
+                if not response_text:
+                    logger.error(f"Unable to extract text from Gemini API response")
+                    logger.error(f"Response object type: {type(response)}")
+                    raise ValueError("Unable to extract text from Gemini API response")
+                
+                logger.debug(f"Gemini response received, length: {len(response_text)} characters")
+                results = self._parse_multiple_versions(response_text)
                 
                 # Add both versions
                 headings.extend(results["headings"])
@@ -102,7 +124,16 @@ class TextGenerationService:
     
     def _parse_multiple_versions(self, response_text: str) -> Dict[str, list]:
         """Parse the Gemini response with Version A and Version B into separate headings and descriptions."""
+        if not response_text:
+            logger.warning("Empty response text received from Gemini")
+            return {
+                "headings": ["Generated Heading A", "Generated Heading B"],
+                "descriptions": ["Generated description content A.", "Generated description content B."]
+            }
+        
+        logger.debug(f"Parsing response text, total length: {len(response_text)}")
         lines = response_text.strip().split('\n')
+        logger.debug(f"Response has {len(lines)} lines")
         
         version_a_heading = ""
         version_a_description = ""
@@ -112,25 +143,34 @@ class TextGenerationService:
         current_version = None
         
         for line in lines:
-            line = line.strip()
-            if line.startswith("VERSION A:"):
+            line_stripped = line.strip()
+            if not line_stripped:
+                continue
+                
+            if line_stripped.upper().startswith("VERSION A"):
                 current_version = "A"
+                logger.debug("Found Version A marker")
                 continue
-            elif line.startswith("VERSION B:"):
+            elif line_stripped.upper().startswith("VERSION B"):
                 current_version = "B"
+                logger.debug("Found Version B marker")
                 continue
-            elif line.startswith("HEADING:"):
-                heading = line.replace("HEADING:", "").strip()
+            elif line_stripped.upper().startswith("HEADING:"):
+                heading = line_stripped.split("HEADING:", 1)[1].strip() if "HEADING:" in line_stripped.upper() else line_stripped.replace("HEADING:", "").strip()
                 if current_version == "A":
                     version_a_heading = heading
+                    logger.debug(f"Found Version A heading: {heading[:50]}...")
                 elif current_version == "B":
                     version_b_heading = heading
-            elif line.startswith("DESCRIPTION:"):
-                description = line.replace("DESCRIPTION:", "").strip()
+                    logger.debug(f"Found Version B heading: {heading[:50]}...")
+            elif line_stripped.upper().startswith("DESCRIPTION:"):
+                description = line_stripped.split("DESCRIPTION:", 1)[1].strip() if "DESCRIPTION:" in line_stripped.upper() else line_stripped.replace("DESCRIPTION:", "").strip()
                 if current_version == "A":
                     version_a_description = description
+                    logger.debug(f"Found Version A description: {description[:50]}...")
                 elif current_version == "B":
                     version_b_description = description
+                    logger.debug(f"Found Version B description: {description[:50]}...")
         
         # Fallback if parsing fails
         if not version_a_heading or not version_a_description:
@@ -231,14 +271,51 @@ class TextGenerationService:
         
         # Customize based on input text
         if input_text:
-            # Use input text as inspiration with version variation
+            # Generate more distinct headings from input text
+            input_words = input_text.split()
+            
             if version == 0:
-                # Version A: Use input text as heading, create different description
-                heading = input_text[:50] + ("..." if len(input_text) > 50 else "")
-                description = f"Lue lisää tästä aiheesta ja seuraa meitä päivittäin."
+                # Version A: Extract first meaningful part, limit to reasonable length for social media
+                # Take first ~60 words or until reasonable length (max 100 chars for headings)
+                heading_parts = []
+                current_length = 0
+                max_length = 100
+                
+                for word in input_words:
+                    if current_length + len(word) + 1 > max_length:
+                        break
+                    heading_parts.append(word)
+                    current_length += len(word) + 1
+                
+                if heading_parts:
+                    heading = " ".join(heading_parts)
+                    # Don't add "..." if we have the full meaningful sentence
+                    if len(input_text) > len(heading) + 20:
+                        heading += "..."
+                else:
+                    # Fallback to first 100 chars if split fails
+                    heading = input_text[:100].strip()
+                description = "Lue lisää tästä aiheesta ja seuraa meitä päivittäin."
             else:
-                # Version B: Create different heading, use input text as description
-                heading = f"Uutinen: {input_text[:40]}"
+                # Version B: Create a different style heading (more engaging, question or statement format)
+                # Extract key information but format differently
+                if len(input_words) >= 4:
+                    # Take key words, but format as a question or more engaging statement
+                    # Get first 3-5 words for a punchier headline
+                    key_words = input_words[:5]
+                    heading = " ".join(key_words)
+                    # Ensure it doesn't exceed limit
+                    if len(heading) > 100:
+                        heading = heading[:97] + "..."
+                    # If it's very short, add context but keep it different from version A
+                    if len(heading) < 30 and len(input_words) > 5:
+                        heading = " ".join(input_words[:8])
+                        if len(heading) > 100:
+                            heading = heading[:97] + "..."
+                else:
+                    # For short input, add a prefix to make it distinct
+                    heading = input_text[:95].strip()
+                
                 description = input_text
         else:
             heading = base_template["heading"]

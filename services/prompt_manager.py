@@ -77,12 +77,21 @@ class PromptManager:
         if platform not in self._loaded_prompts:
             raise ValueError(f"Unsupported platform: {platform}")
         
+        # Normalize content type (handle both singular and plural)
+        content_type_normalized = content_type.lower()
+        if content_type_normalized == "post":
+            content_type_normalized = "posts"
+        elif content_type_normalized == "story":
+            content_type_normalized = "stories"
+        
         # Validate content type
-        if content_type not in self._loaded_prompts[platform]:
-            raise ValueError(f"Unsupported content type for {platform}: {content_type}")
+        if content_type_normalized not in self._loaded_prompts[platform]:
+            available_types = list(self._loaded_prompts[platform].keys())
+            logger.error(f"Content type mismatch for {platform}: requested '{content_type}' (normalized: '{content_type_normalized}'), available: {available_types}")
+            raise ValueError(f"Unsupported content type for {platform}: {content_type} (available: {', '.join(available_types)})")
         
         # Get the prompt template
-        prompt_templates = self._loaded_prompts[platform][content_type]
+        prompt_templates = self._loaded_prompts[platform][content_type_normalized]
         
         if text_length not in prompt_templates:
             # Fallback to medium if length not available
