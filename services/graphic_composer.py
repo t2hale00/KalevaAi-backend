@@ -308,6 +308,8 @@ class GraphicComposer:
     
     def _add_newspaper_logo_bottom_story(self, canvas: Image.Image, newspaper: str, colors: Dict, width: int, height: int) -> Image.Image:
         """Add newspaper logo at bottom center for stories (higher positioning)."""
+        draw = ImageDraw.Draw(canvas)
+        
         # Calculate logo size and position with uniform sizing
         logo_height = int(height * 0.12)  # 12% of canvas height (increased from 8%)
         max_logo_width = int(width * 0.5)  # Maximum 50% of canvas width for uniform sizing (increased from 40%)
@@ -377,6 +379,8 @@ class GraphicComposer:
             # Add main text
             draw.text((text_x, text_y), newspaper, fill=colors["text_light"], font=font)
             logger.info(f"Added {newspaper} text logo at bottom center to story graphic")
+        
+        return canvas
         
     def _add_newspaper_logo_bottom(self, canvas: Image.Image, newspaper: str, colors: Dict, width: int, height: int) -> Image.Image:
         """Add newspaper logo at bottom center like in the example."""
@@ -598,7 +602,8 @@ class GraphicComposer:
         # Fallback: Add text-based logo if image logo failed
         if not (brand_specs and brand_specs.logo_path and Path(brand_specs.logo_path).exists()):
             # Use newspaper name as text logo
-            font_size = min(logo_height, 24)
+            draw = ImageDraw.Draw(canvas)
+            font_size = min(max_logo_height, 24)
             font = self._load_font(font_size, weight="Bold")
             
             # Get text bounding box
