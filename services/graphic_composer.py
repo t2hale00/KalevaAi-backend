@@ -669,67 +669,57 @@ class GraphicComposer:
         return colored_logo
     
     def _add_campaign_banner(self, canvas: Image.Image, colors: Dict, content_type: str, width: int, height: int, banner_text: str = None) -> Image.Image:
-        """Add quarter-circle style campaign banner with user-entered title."""
+        """Add rectangular campaign banner with centered title and white background."""
         draw = ImageDraw.Draw(canvas)
         
         # Use user-entered banner text or default
         if not banner_text:
             banner_text = "ALUE- JA KUNTA-VAALIT 2025"  # Default fallback
         
-        # Calculate banner size
-        banner_height = int(height * 0.08)  # 8% of canvas height
-        banner_width = int(width * 0.35)    # 35% of canvas width
+        # Convert text to uppercase
+        banner_text = banner_text.upper()
         
-        # Position based on content type
-        if content_type == "story":
-            # Stories: upper right
-            x_pos = width - banner_width - int(width * 0.05)  # 5% margin
-            y_pos = int(height * 0.05)  # 5% margin
-        else:
-            # Posts: upper left
-            x_pos = int(width * 0.05)  # 5% margin
-            y_pos = int(height * 0.05)  # 5% margin
+        # Calculate font size first to determine banner size
+        font_size = min(int(height * 0.04), 28)  # 4% of height or max 28px
+        font = self._load_font(font_size, weight="Bold")
         
-        # Create quarter-circle style banner (curved design)
-        # Create a larger circle and crop it to create quarter-circle effect
-        circle_radius = banner_height * 2  # Make circle larger than banner
-        circle_center_x = x_pos + circle_radius
-        circle_center_y = y_pos + circle_radius
-        
-        # Create temporary image for the circle
-        temp_size = circle_radius * 2
-        temp_img = Image.new('RGBA', (temp_size, temp_size), (0, 0, 0, 0))
-        temp_draw = ImageDraw.Draw(temp_img)
-        
-        # Draw full circle
-        circle_bbox = [0, 0, temp_size, temp_size]
-        temp_draw.ellipse(circle_bbox, fill=colors["primary"])
-        
-        # Crop to quarter-circle (top-left quadrant)
-        quarter_circle = temp_img.crop((0, 0, circle_radius, circle_radius))
-        
-        # Paste quarter-circle onto canvas
-        canvas.paste(quarter_circle, (x_pos, y_pos), quarter_circle)
-        
-        # Add banner text
-        font_size = min(banner_height // 2, 24)
-        font = self._load_font(font_size, weight="Bold")  # Use bold for banner text
-        
-        # Get text bounding box
+        # Get text bounding box to calculate banner dimensions
         bbox = draw.textbbox((0, 0), banner_text, font=font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
         
-        # Position text within the quarter-circle area
-        text_x = x_pos + int(circle_radius * 0.3)  # Position within quarter-circle
-        text_y = y_pos + int(circle_radius * 0.3)  # Position within quarter-circle
+        # Calculate banner size with larger padding to ensure text fits comfortably
+        padding_x = max(int(height * 0.04), 15)  # 4% of height or minimum 15px
+        padding_y = max(int(height * 0.04), 10)  # 4% of height or minimum 10px
+        banner_width = text_width + (padding_x * 2)
+        banner_height = text_height + (padding_y * 2)
         
-        # Add text shadow for better readability
-        shadow_offset = 1
-        draw.text((text_x + shadow_offset, text_y + shadow_offset), banner_text, fill=(0, 0, 0), font=font)
+        # Center the banner horizontally on the canvas
+        x_pos = (width - banner_width) // 2
         
-        # Add main text
-        draw.text((text_x, text_y), banner_text, fill=colors["text_light"], font=font)
+        # Position banner above headlines based on content type
+        # Stories: headlines at 50% mark, Posts: headlines at 25-60% depending on version
+        if content_type == "story":
+            # Position above centered headline (50% mark)
+            y_pos = int(height * 0.50) - banner_height - int(height * 0.03)  # 3% gap above headline
+        else:
+            # Position above top headline (25% mark for v2, 60% for v1)
+            # Position just above the higher headline to work for both versions
+            y_pos = int(height * 0.25) - banner_height - int(height * 0.02)  # 2% gap above headline at 25%
+        
+        # Draw white background rectangle
+        draw.rectangle(
+            [x_pos, y_pos, x_pos + banner_width, y_pos + banner_height],
+            fill=(255, 255, 255),  # White background
+            outline=None
+        )
+        
+        # Calculate text position (centered in the banner)
+        text_x = x_pos + padding_x
+        text_y = y_pos + padding_y
+        
+        # Add main text with newspaper primary color
+        draw.text((text_x, text_y), banner_text, fill=colors["primary"], font=font)
         
         return canvas
     
@@ -806,59 +796,51 @@ class GraphicComposer:
 
 
     def _add_campaign_banner_story(self, canvas: Image.Image, colors: Dict, content_type: str, width: int, height: int, banner_text: str = None) -> Image.Image:
-        """Add quarter-circle style campaign banner in upper-right for stories."""
+        """Add rectangular campaign banner with centered title and white background for stories."""
         draw = ImageDraw.Draw(canvas)
         
         # Use user-entered banner text or default
         if not banner_text:
             banner_text = "ALUE- JA KUNTA-VAALIT 2025"  # Default fallback
         
-        # Calculate banner size
-        banner_height = int(height * 0.08)  # 8% of canvas height
-        banner_width = int(width * 0.35)    # 35% of canvas width
+        # Convert text to uppercase
+        banner_text = banner_text.upper()
         
-        # Position in upper-right for stories
-        x_pos = width - banner_width - int(width * 0.05)  # 5% margin from right
-        y_pos = int(height * 0.05)  # 5% margin from top
+        # Calculate font size first to determine banner size
+        font_size = min(int(height * 0.04), 28)  # 4% of height or max 28px
+        font = self._load_font(font_size, weight="Bold")
         
-        # Create quarter-circle style banner (curved design)
-        # Create a larger circle and crop it to create quarter-circle effect
-        circle_radius = banner_height * 2  # Make circle larger than banner
-        
-        # Create temporary image for the circle
-        temp_size = circle_radius * 2
-        temp_img = Image.new('RGBA', (temp_size, temp_size), (0, 0, 0, 0))
-        temp_draw = ImageDraw.Draw(temp_img)
-        
-        # Draw full circle
-        circle_bbox = [0, 0, temp_size, temp_size]
-        temp_draw.ellipse(circle_bbox, fill=colors["primary"])
-        
-        # Crop to quarter-circle (top-right quadrant for stories)
-        quarter_circle = temp_img.crop((circle_radius, 0, temp_size, circle_radius))
-        
-        # Paste quarter-circle onto canvas
-        canvas.paste(quarter_circle, (x_pos, y_pos), quarter_circle)
-        
-        # Add banner text
-        font_size = min(banner_height // 2, 24)
-        font = self._load_font(font_size, weight="Bold")  # Use bold for banner text
-        
-        # Get text bounding box
+        # Get text bounding box to calculate banner dimensions
         bbox = draw.textbbox((0, 0), banner_text, font=font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
         
-        # Position text within the quarter-circle area
-        text_x = x_pos + int(circle_radius * 0.3)  # Position within quarter-circle
-        text_y = y_pos + int(circle_radius * 0.3)  # Position within quarter-circle
+        # Calculate banner size with larger padding to ensure text fits comfortably
+        padding_x = max(int(height * 0.04), 15)  # 4% of height or minimum 15px
+        padding_y = max(int(height * 0.04), 10)  # 4% of height or minimum 10px
+        banner_width = text_width + (padding_x * 2)
+        banner_height = text_height + (padding_y * 2)
         
-        # Add text shadow for better readability
-        shadow_offset = 1
-        draw.text((text_x + shadow_offset, text_y + shadow_offset), banner_text, fill=(0, 0, 0), font=font)
+        # Center the banner horizontally on the canvas
+        x_pos = (width - banner_width) // 2
         
-        # Add main text
-        draw.text((text_x, text_y), banner_text, fill=colors["text_light"], font=font)
+        # Position banner above headlines for stories (headlines at 50% mark, centered)
+        # Move banner much higher to avoid overlap with large headline text
+        y_pos = int(height * 0.50) - banner_height - int(height * 0.12)  # 12% gap above headline to prevent overlap
+        
+        # Draw white background rectangle
+        draw.rectangle(
+            [x_pos, y_pos, x_pos + banner_width, y_pos + banner_height],
+            fill=(255, 255, 255),  # White background
+            outline=None
+        )
+        
+        # Calculate text position (centered in the banner)
+        text_x = x_pos + padding_x
+        text_y = y_pos + padding_y
+        
+        # Add main text with newspaper primary color
+        draw.text((text_x, text_y), banner_text, fill=colors["primary"], font=font)
         
         return canvas
     
@@ -925,9 +907,23 @@ class GraphicComposer:
         if not banner_text:
             banner_text = "ALUE- JA KUNTA-VAALIT 2025"  # Default fallback
         
-        # Calculate banner size
-        banner_height = int(height * 0.08)  # 8% of canvas height
-        banner_width = int(width * 0.25)   # 25% of canvas width (smaller for landscape)
+        # Convert text to uppercase
+        banner_text = banner_text.upper()
+        
+        # Calculate font size first to determine banner size
+        font_size = min(int(height * 0.04), 28)  # 4% of height or max 28px
+        font = self._load_font(font_size, weight="Bold")
+        
+        # Get text bounding box to calculate banner dimensions
+        bbox = draw.textbbox((0, 0), banner_text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        # Calculate banner size with larger padding to ensure text fits comfortably
+        padding_x = max(int(height * 0.04), 15)  # 4% of height or minimum 15px
+        padding_y = max(int(height * 0.04), 10)  # 4% of height or minimum 10px
+        banner_width = text_width + (padding_x * 2)
+        banner_height = text_height + (padding_y * 2)
         
         # Position in upper-left of photo section
         panel_width = int(width * 0.4)  # 2/5 of width for solid color panel
@@ -942,24 +938,16 @@ class GraphicComposer:
         
         y_pos = int(height * 0.05)  # 5% margin from top
         
-        # Create banner background
+        # Create banner background with white background
         banner_rect = [x_pos, y_pos, x_pos + banner_width, y_pos + banner_height]
-        draw.rectangle(banner_rect, fill=colors["primary"])
-        
-        # Add banner text
-        font_size = min(banner_height // 2, 20)
-        font = self._load_font(font_size)
-        
-        # Get text bounding box and center it in banner
-        bbox = draw.textbbox((0, 0), banner_text, font=font)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
+        draw.rectangle(banner_rect, fill=(255, 255, 255))
         
         # Center text within banner
-        text_x = x_pos + (banner_width - text_width) // 2
-        text_y = y_pos + (banner_height - text_height) // 2
+        text_x = x_pos + padding_x
+        text_y = y_pos + padding_y
         
-        draw.text((text_x, text_y), banner_text, fill=colors["text_light"], font=font)
+        # Add banner text with newspaper primary color
+        draw.text((text_x, text_y), banner_text, fill=colors["primary"], font=font)
         
         return canvas
     
@@ -1010,10 +998,26 @@ class GraphicComposer:
             # Larger default font size for landscape
             font_size = min(panel_width // 8, height // 12, 48)
         
-        font = self._load_font(font_size)
+        # Wrap text if needed with better margins
+        # Calculate available text width with margins
+        margin_percentage = 0.15  # 15% margin on each side
+        available_width = panel_width * (1 - (margin_percentage * 2))  # 70% of panel width
         
-        # Wrap text if needed
+        # First, check if we need to reduce font size for very long words
         words = text.split()
+        font = self._load_font(font_size)
+        for word in words:
+            word_bbox = draw.textbbox((0, 0), word, font=font)
+            word_width = word_bbox[2] - word_bbox[0]
+            if word_width > available_width:
+                # Reduce font size until the longest word fits
+                while font_size > 12 and word_width > available_width:
+                    font_size -= 1
+                    font = self._load_font(font_size)
+                    word_bbox = draw.textbbox((0, 0), word, font=font)
+                    word_width = word_bbox[2] - word_bbox[0]
+        
+        # Now wrap text with the adjusted font size
         lines = []
         current_line = []
         
@@ -1023,7 +1027,8 @@ class GraphicComposer:
             bbox = draw.textbbox((0, 0), test_text, font=font)
             text_width = bbox[2] - bbox[0]
             
-            if text_width > panel_width * 0.9:  # 90% of panel width
+            # Check if text fits in available width
+            if text_width > available_width:
                 if len(current_line) > 1:
                     current_line.pop()
                     lines.append(" ".join(current_line))
