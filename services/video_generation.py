@@ -27,7 +27,9 @@ class VideoGenerationService:
         output_path: str,
         duration: int = 3,
         effect_type: str = "zoom_pan",
-        version: int = 1
+        version: int = 1,
+        campaign_type: str = "logo_only",
+        banner_text: str = None
     ) -> str:
         """
         Create a motion-style graphic with animations.
@@ -43,6 +45,8 @@ class VideoGenerationService:
             duration: Video duration in seconds
             effect_type: Type of animation effect ("zoom_pan" or "fade_rotate")
             version: Visual version/style (1 or 2) for different layouts
+            campaign_type: Campaign banner type
+            banner_text: Campaign banner text
             
         Returns:
             Path to created video
@@ -77,15 +81,17 @@ class VideoGenerationService:
             content_type=content_type,
             layout=layout,
             output_path=temp_image_path,
-            campaign_type="logo_only",
-            version=version  # Use different visual style
+            campaign_type=campaign_type,
+            version=version,  # Use different visual style
+            banner_text=banner_text
         )
         
         # Load the complete branded image
         base_img = cv2.imread(temp_image_path)
         height, width, layers = base_img.shape
         
-        # Create a photo-only layer (without text) for separate animation
+        # Create a photo-only layer (without text OR banner) for separate animation
+        # Banner should only appear in text layer to ensure proper separation
         temp_photo_path = str(Path(output_path).parent / f"temp_photo_{Path(output_path).stem}.png")
         graphic_composer.create_branded_social_graphic(
             input_image_path=input_image_path,
@@ -96,8 +102,9 @@ class VideoGenerationService:
             content_type=content_type,
             layout=layout,
             output_path=temp_photo_path,
-            campaign_type="logo_only",
-            version=version  # Use same visual style for photo layer
+            campaign_type="logo_only",  # No banner in photo layer
+            version=version,  # Use same visual style for photo layer
+            banner_text=None  # No banner text in photo layer
         )
         photo_img = cv2.imread(temp_photo_path)
         

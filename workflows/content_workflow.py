@@ -142,6 +142,13 @@ class ContentWorkflow:
                 # Generate 2 animated graphics with different effects, headings, and styles
                 logger.info("Step 2: Generating 2 animated graphics with different effects and styles")
                 
+                # Determine campaign type and banner text based on banner data (same as static)
+                campaign_type = "logo_only"  # Default: only show logo
+                banner_text = None
+                if banner_data and banner_data.get("add_banner") and banner_data.get("banner_name"):
+                    campaign_type = banner_data["banner_name"]
+                    banner_text = banner_data["banner_name"]  # User-entered campaign title
+                
                 graphic_urls = []
                 effect_types = ["zoom_pan", "fade_rotate"]
                 effect_names = ["fade_wipe_up", "wipe_fly"]
@@ -164,7 +171,9 @@ class ContentWorkflow:
                             layout=request.layout.value,
                             output_path=output_path,
                             effect_type=effect_type,
-                            version=i  # Pass version for different styles
+                            version=i,  # Pass version for different styles
+                            campaign_type=campaign_type,
+                            banner_text=banner_text
                         )
                         
                         graphic_urls.append(f"/api/download/{output_filename}")
