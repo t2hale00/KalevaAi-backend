@@ -139,26 +139,40 @@ class ContentWorkflow:
                 graphic_url = graphic_urls[0] if graphic_urls else None
                 file_format = "PNG"
             else:
-                # Generate animated graphic (use first heading for now)
-                output_filename = f"{task_id}.mp4"
-                output_path = str(self.output_dir / output_filename)
+                # Generate 2 animated graphics with different effects
+                logger.info("Step 2: Generating 2 animated graphics with different effects")
+                
+                graphic_urls = []
+                effect_types = ["zoom_pan", "fade_rotate"]
+                effect_names = ["zoom_pan", "fade_rotate"]
                 
                 # Use the first heading for animated graphics
                 first_heading = headings[0] if headings else "Generated Heading"
                 
-                video_generation_service.create_motion_graphic(
-                    input_image_path=image_path,
-                    heading_text=first_heading,
-                    newspaper=request.newspaper.value,
-                    platform=request.platform.value,
-                    content_type=request.content_type.value,
-                    layout=request.layout.value,
-                    output_path=output_path
-                )
+                for i, (effect_type, effect_name) in enumerate(zip(effect_types, effect_names), 1):
+                    output_filename = f"{task_id}_v{i}_{effect_name}.mp4"
+                    output_path = str(self.output_dir / output_filename)
+                    
+                    try:
+                        video_generation_service.create_motion_graphic(
+                            input_image_path=image_path,
+                            heading_text=first_heading,
+                            newspaper=request.newspaper.value,
+                            platform=request.platform.value,
+                            content_type=request.content_type.value,
+                            layout=request.layout.value,
+                            output_path=output_path,
+                            effect_type=effect_type
+                        )
+                        
+                        graphic_urls.append(f"/api/download/{output_filename}")
+                        logger.info(f"Generated video version {i} with {effect_name} effect: {output_filename}")
+                        
+                    except Exception as e:
+                        logger.error(f"Error generating video version {i}: {e}")
                 
-                graphic_url = f"/api/download/{output_filename}"
+                graphic_url = graphic_urls[0] if graphic_urls else None
                 file_format = "MP4"
-                graphic_urls = [graphic_url]  # Single video for now
             
             # Create response with multiple versions
             dimensions = f"{platform_specs['width']}×{platform_specs['height']}px ({platform_specs['aspect_ratio']})"

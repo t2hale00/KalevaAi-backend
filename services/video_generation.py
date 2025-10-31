@@ -25,7 +25,8 @@ class VideoGenerationService:
         content_type: str,
         layout: str,
         output_path: str,
-        duration: int = 5
+        duration: int = 5,
+        effect_type: str = "zoom_pan"
     ) -> str:
         """
         Create a motion-style graphic with animations.
@@ -39,6 +40,7 @@ class VideoGenerationService:
             layout: Layout type
             output_path: Path to save output video
             duration: Video duration in seconds
+            effect_type: Type of animation effect ("zoom_pan" or "fade_rotate")
             
         Returns:
             Path to created video
@@ -73,7 +75,7 @@ class VideoGenerationService:
             content_type=content_type,
             layout=layout,
             output_path=temp_image_path,
-            campaign_type="none"
+            campaign_type="logo_only"
         )
         
         # Create video with animations using OpenCV
@@ -106,7 +108,8 @@ class VideoGenerationService:
                 base_img.copy(),
                 progress,
                 width,
-                height
+                height,
+                effect_type
             )
             
             video.write(animated_frame)
@@ -128,18 +131,41 @@ class VideoGenerationService:
         
         return output_path
     
-    def _apply_animation_effects(self, frame, progress, width, height):
+    def _apply_animation_effects(self, frame, progress, width, height, effect_type="zoom_pan"):
         """
         Apply PowerPoint-style animation effects to the frame.
         
         Effects:
-        - Zoom in effect: Image zooms from 100% to 120%
-        - Fade in effect: Fades in from black
-        - Pan effect: Slight horizontal movement
+        - zoom_pan: Zoom in effect with horizontal pan movement
+        - fade_rotate: Fade in with subtle rotation
+        
+        Args:
+            frame: Input frame as numpy array
+            progress: Animation progress (0 to 1)
+            width: Target width
+            height: Target height
+            effect_type: Type of effect to apply ("zoom_pan" or "fade_rotate")
         """
-        # Effect 1: Strong Zoom effect (Ken Burns style)
-        # More aggressive zoom for visibility
-        zoom_factor = 1.0 + (0.25 * progress)  # Zoom from 100% to 125%
+        if effect_type == "zoom_pan":
+            return self._apply_zoom_pan_effects(frame, progress, width, height)
+        elif effect_type == "fade_rotate":
+            return self._apply_fade_rotate_effects(frame, progress, width, height)
+        else:
+            return frame
+    
+    def _apply_zoom_pan_effects(self, frame, progress, width, height):
+        """
+        Apply zoom and pan effects (version 1) - PowerPoint style with faster animation.
+        
+        Effects:
+        - Fast zoom and pan to center position
+        - Quick fade in effect
+        - Smooth brightness enhancement
+        """
+        # Effect 1: Fast Zoom effect (Ken Burns style) - reaches target by 50% of video
+        # Use ease-in-out curve for PowerPoint-like animation
+        ease_progress = progress * progress * (3.0 - 2.0 * progress)  # Smoothstep
+        zoom_factor = 1.0 + (0.20 * ease_progress)  # Zoom from 100% to 120%
         
         # Calculate new dimensions
         new_width = int(width * zoom_factor)
@@ -147,10 +173,12 @@ class VideoGenerationService:
         
         # Resize frame with smooth interpolation
         zoomed = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
-        
-        # Effect 2: Pan effect (slight horizontal movement)
-        # Pan from left to center
-        pan_offset = int((new_width - width) * (0.5 - progress * 0.3))
+
+        # Effect 2: Fast pan to center - smooth ease-in-out
+        # Pan from offset position to center (0.5 = center)
+        pan_progress = ease_progress
+        center_pos = 0.5  # Always center at the end
+        pan_offset = int((new_width - width) * center_pos * (1 - pan_progress))
         start_x = max(0, min(pan_offset, new_width - width))
         start_y = (new_height - height) // 2
         
@@ -162,19 +190,63 @@ class VideoGenerationService:
             
         cropped = zoomed[start_y:start_y + height, start_x:start_x + width]
         
-        # Effect 3: Fade in effect (first 1.5 seconds)
-        if progress < 0.3:  # First 30% of video
-            fade_progress = progress / 0.3
-            # Smooth fade curve
+        # Effect 3: Fast fade in effect (first 15% of video) - PowerPoint style
+        if progress < 0.15:
+            fade_progress = progress / 0.15
             fade_progress = fade_progress ** 0.5  # Ease out
-            # Apply fade by blending with black
             black = np.zeros_like(cropped)
             cropped = cv2.addWeighted(black, 1 - fade_progress, cropped, fade_progress, 0)
         
-        # Effect 4: Brightness enhancement (subtle throughout)
-        if progress > 0.3:  # After fade in
-            brightness_boost = 1.0 + (0.1 * (progress - 0.3))  # Gradually brighten
-            cropped = cv2.convertScaleAbs(cropped, alpha=min(brightness_boost, 1.15), beta=5)
+        # Effect 4: Brightness enhancement
+        if progress > 0.15:
+            brightness_boost = 1.0 + (0.1 * (progress - 0.15))
+            cropped = cv2.convertScaleAbs(cropped, alpha=min(brightness_boost, 1.1), beta=3)
+        
+        return cropped
+    
+    def _apply_fade_rotate_effects(self, frame, progress, width, height):
+        """
+        Apply fade and rotate effects (version 2) - PowerPoint style with faster animation.
+        
+        Effects:
+        - Fast fade in
+        - Quick rotation that settles at center
+        - Smooth pulse effect
+        - Contrast enhancement
+        """
+        # Effect 1: Very fast fade in effect (first 10% of video)
+        if progress < 0.1:
+            fade_progress = progress / 0.1
+            fade_progress = fade_progress ** 0.7  # Smooth fade
+            black = np.zeros_like(frame)
+            frame = cv2.addWeighted(black, 1 - fade_progress, frame, fade_progress, 0)
+        
+        # Effect 2: Fast rotation that reaches final position early
+        # Use ease-out for smooth deceleration
+        ease_progress = progress * progress * (3.0 - 2.0 * progress)  # Smoothstep
+        angle = ease_progress * 5  # Rotate up to 5 degrees with ease-out
+        rotation_matrix = cv2.getRotationMatrix2D((width/2, height/2), angle, 1.0)
+        rotated = cv2.warpAffine(frame, rotation_matrix, (width, height), 
+                                flags=cv2.INTER_LINEAR, 
+                                borderMode=cv2.BORDER_REPLICATE)
+        
+        # Effect 3: Smooth pulse effect (gentle zoom pulse)
+        pulse_progress = abs(np.sin(progress * np.pi * 3)) * 0.03  # Gentler pulse
+        scale_factor = 1.0 + pulse_progress
+        new_width = int(width * scale_factor)
+        new_height = int(height * scale_factor)
+        
+        scaled = cv2.resize(rotated, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+        
+        # Crop center - always keep content centered
+        start_x = max(0, (new_width - width) // 2)
+        start_y = max(0, (new_height - height) // 2)
+        cropped = scaled[start_y:start_y + height, start_x:start_x + width]
+        
+        # Effect 4: Smooth contrast enhancement
+        if progress > 0.1:
+            contrast_boost = 1.0 + (0.1 * (progress - 0.1))
+            cropped = cv2.convertScaleAbs(cropped, alpha=min(contrast_boost, 1.1), beta=5)
         
         return cropped
 
