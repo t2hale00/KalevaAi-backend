@@ -25,7 +25,7 @@ class VideoGenerationService:
         content_type: str,
         layout: str,
         output_path: str,
-        duration: int = 3,
+        duration: int = 15,
         effect_type: str = "zoom_pan",
         version: int = 1,
         campaign_type: str = "logo_only",
@@ -119,15 +119,23 @@ class VideoGenerationService:
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             video = cv2.VideoWriter(output_path, fourcc, 30, (width, height))
         
-        # Create animated frames
+        # Create animated frames with holding period
         fps = 30
+        animation_duration = 3  # Fast transitions in first 3 seconds
+        hold_duration = duration - animation_duration  # Hold final frame for remaining time
         total_frames = duration * fps
+        animation_frames = animation_duration * fps
         
-        logger.info(f"Generating {total_frames} animated frames at {fps} fps")
+        logger.info(f"Generating {total_frames} frames: {animation_duration}s animation + {hold_duration}s hold")
         
         for frame_num in range(total_frames):
-            # Calculate progress (0 to 1)
-            progress = frame_num / total_frames
+            # Calculate progress - animations complete in first 3 seconds
+            if frame_num < animation_frames:
+                # Animation phase: progress from 0 to 1 over first 3 seconds
+                progress = frame_num / animation_frames
+            else:
+                # Hold phase: stay at completion (progress = 1)
+                progress = 1.0
             
             # Apply separate effects to photo and text layers
             animated_frame = self._apply_layered_animation_effects(
