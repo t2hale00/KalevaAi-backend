@@ -208,25 +208,28 @@ class VideoGenerationService:
         black = np.zeros_like(photo_frame)
         photo_faded = cv2.addWeighted(black, 1 - photo_alpha, photo_frame, photo_alpha, 0)
         
+        # Extract text layer first
+        text_layer = cv2.absdiff(text_frame, photo_frame)
+        text_mask_gray = cv2.cvtColor(text_layer, cv2.COLOR_BGR2GRAY)
+        _, text_mask = cv2.threshold(text_mask_gray, 10, 255, cv2.THRESH_BINARY)
+        
         # Text effect: Wipe Up (PowerPoint Wipe Up transition)
         # Text wipes in from bottom to top
         text_progress = max(0, (progress - 0.3) / 0.7)  # Start after photo fade, end at 100%
         text_ease = text_progress * text_progress * (3.0 - 2.0 * text_progress)
         
-        # Create wipe mask from bottom to top
+        # Create wipe mask from bottom to top for text only
         wipe_height = int(height * text_ease)
-        text_wipe = np.zeros_like(text_frame)
-        text_wipe[height - wipe_height:height, :] = text_frame[height - wipe_height:height, :]
+        text_wipe_mask = np.zeros((height, width), dtype=np.uint8)
+        text_wipe_mask[height - wipe_height:height, :] = 255
         
-        # Extract text layer and apply wipe effect
-        diff = cv2.absdiff(text_wipe, photo_frame)
-        text_mask = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
-        _, text_mask = cv2.threshold(text_mask, 10, 255, cv2.THRESH_BINARY)
-        text_mask_normalized = text_mask.astype(np.float32) / 255.0
+        # Apply wipe to text mask
+        text_animated_mask = cv2.bitwise_and(text_mask, text_wipe_mask)
+        text_mask_normalized = text_animated_mask.astype(np.float32) / 255.0
         
-        # Blend text wipe over faded photo
+        # Blend animated text over faded photo
         for c in range(3):
-            photo_faded[:, :, c] = photo_faded[:, :, c] * (1 - text_mask_normalized) + text_wipe[:, :, c] * text_mask_normalized
+            photo_faded[:, :, c] = photo_faded[:, :, c] * (1 - text_mask_normalized) + text_frame[:, :, c] * text_mask_normalized
         
         return photo_faded
     
@@ -296,6 +299,11 @@ class VideoGenerationService:
         photo_wipe = np.zeros_like(photo_frame)
         photo_wipe[:, :wipe_width] = photo_frame[:, :wipe_width]
         
+        # Extract text layer first
+        text_layer = cv2.absdiff(text_frame, photo_frame)
+        text_mask_gray = cv2.cvtColor(text_layer, cv2.COLOR_BGR2GRAY)
+        _, text_mask = cv2.threshold(text_mask_gray, 10, 255, cv2.THRESH_BINARY)
+        
         # Text effect: Fly In from Bottom (PowerPoint Fly In transition)
         # Text flies in from the bottom
         text_progress = max(0, (progress - 0.4) / 0.6)  # Start after photo, end at 100%
@@ -311,16 +319,18 @@ class VideoGenerationService:
         else:
             text_fly = text_frame
         
-        # Apply fade to flying text
+        # Apply fade and fly effect to text
         text_alpha = text_ease ** 0.8
         
-        # Extract text layer and apply fly effect
-        diff = cv2.absdiff(text_fly, photo_frame)
-        text_mask = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
-        _, text_mask = cv2.threshold(text_mask, 10, 255, cv2.THRESH_BINARY)
-        text_mask_normalized = text_mask.astype(np.float32) / 255.0 * text_alpha
+        # Create fly mask for text
+        text_fly_mask = np.zeros((height, width), dtype=np.uint8)
+        text_fly_mask[:height - fly_distance, :] = 255
         
-        # Blend text fly over wiped photo
+        # Apply fly and fade to text mask
+        text_animated_mask = cv2.bitwise_and(text_mask, text_fly_mask)
+        text_mask_normalized = text_animated_mask.astype(np.float32) / 255.0 * text_alpha
+        
+        # Blend animated text over wiped photo
         for c in range(3):
             photo_wipe[:, :, c] = photo_wipe[:, :, c] * (1 - text_mask_normalized) + text_fly[:, :, c] * text_mask_normalized
         
