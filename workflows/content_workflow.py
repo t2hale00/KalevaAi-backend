@@ -52,7 +52,7 @@ class ContentWorkflow:
                 text_length=request.text_length.value,
                 input_text=request.text_content,
                 newspaper=request.newspaper.value,
-                num_versions=2
+                num_versions=4
             )
             
             headings = generated_text_dict["headings"]
@@ -95,11 +95,11 @@ class ContentWorkflow:
                 
                 # Determine how many versions to generate
                 if request.layout.value in ["portrait", "square"]:
-                    # Portrait/Square Posts and Stories: Generate 2 different visual versions
-                    versions_to_generate = [1, 2]
+                    # Portrait/Square Posts and Stories: Generate 4 different visual versions
+                    versions_to_generate = [1, 2, 3, 4]
                 elif request.layout.value == "landscape":
-                    # Landscape Posts and Stories: Generate 2 versions (same layout, different headings)
-                    versions_to_generate = [1, 2]
+                    # Landscape Posts and Stories: Generate 4 versions (same layout, different headings)
+                    versions_to_generate = [1, 2, 3, 4]
                 else:
                     # Fallback: Generate single version
                     versions_to_generate = [1]

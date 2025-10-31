@@ -95,7 +95,7 @@ class TextGenerationService:
                 logger.debug(f"Gemini response received, length: {len(response_text)} characters")
                 results = self._parse_multiple_versions(response_text)
                 
-                # Add both versions
+                # Add all versions from Gemini
                 headings.extend(results["headings"])
                 descriptions.extend(results["descriptions"])
                 logger.info(f"Generated {len(results['headings'])} versions with Gemini")
@@ -123,12 +123,12 @@ class TextGenerationService:
         }
     
     def _parse_multiple_versions(self, response_text: str) -> Dict[str, list]:
-        """Parse the Gemini response with Version A and Version B into separate headings and descriptions."""
+        """Parse the Gemini response with Version A, B, C, and D into separate headings and descriptions."""
         if not response_text:
             logger.warning("Empty response text received from Gemini")
             return {
-                "headings": ["Generated Heading A", "Generated Heading B"],
-                "descriptions": ["Generated description content A.", "Generated description content B."]
+                "headings": ["Generated Heading A", "Generated Heading B", "Generated Heading C", "Generated Heading D"],
+                "descriptions": ["Generated description content A.", "Generated description content B.", "Generated description content C.", "Generated description content D."]
             }
         
         logger.debug(f"Parsing response text, total length: {len(response_text)}")
@@ -139,6 +139,10 @@ class TextGenerationService:
         version_a_description = ""
         version_b_heading = ""
         version_b_description = ""
+        version_c_heading = ""
+        version_c_description = ""
+        version_d_heading = ""
+        version_d_description = ""
         
         current_version = None
         
@@ -155,6 +159,14 @@ class TextGenerationService:
                 current_version = "B"
                 logger.debug("Found Version B marker")
                 continue
+            elif line_stripped.upper().startswith("VERSION C"):
+                current_version = "C"
+                logger.debug("Found Version C marker")
+                continue
+            elif line_stripped.upper().startswith("VERSION D"):
+                current_version = "D"
+                logger.debug("Found Version D marker")
+                continue
             elif line_stripped.upper().startswith("HEADING:"):
                 heading = line_stripped.split("HEADING:", 1)[1].strip() if "HEADING:" in line_stripped.upper() else line_stripped.replace("HEADING:", "").strip()
                 if current_version == "A":
@@ -163,6 +175,12 @@ class TextGenerationService:
                 elif current_version == "B":
                     version_b_heading = heading
                     logger.debug(f"Found Version B heading: {heading[:50]}...")
+                elif current_version == "C":
+                    version_c_heading = heading
+                    logger.debug(f"Found Version C heading: {heading[:50]}...")
+                elif current_version == "D":
+                    version_d_heading = heading
+                    logger.debug(f"Found Version D heading: {heading[:50]}...")
             elif line_stripped.upper().startswith("DESCRIPTION:"):
                 description = line_stripped.split("DESCRIPTION:", 1)[1].strip() if "DESCRIPTION:" in line_stripped.upper() else line_stripped.replace("DESCRIPTION:", "").strip()
                 if current_version == "A":
@@ -171,6 +189,12 @@ class TextGenerationService:
                 elif current_version == "B":
                     version_b_description = description
                     logger.debug(f"Found Version B description: {description[:50]}...")
+                elif current_version == "C":
+                    version_c_description = description
+                    logger.debug(f"Found Version C description: {description[:50]}...")
+                elif current_version == "D":
+                    version_d_description = description
+                    logger.debug(f"Found Version D description: {description[:50]}...")
         
         # Fallback if parsing fails
         if not version_a_heading or not version_a_description:
@@ -183,9 +207,19 @@ class TextGenerationService:
             version_b_heading = "Generated Heading B"
             version_b_description = "Generated description content B."
         
+        if not version_c_heading or not version_c_description:
+            logger.warning("Failed to parse Version C, using fallback")
+            version_c_heading = "Generated Heading C"
+            version_c_description = "Generated description content C."
+        
+        if not version_d_heading or not version_d_description:
+            logger.warning("Failed to parse Version D, using fallback")
+            version_d_heading = "Generated Heading D"
+            version_d_description = "Generated description content D."
+        
         return {
-            "headings": [version_a_heading, version_b_heading],
-            "descriptions": [version_a_description, version_b_description]
+            "headings": [version_a_heading, version_b_heading, version_c_heading, version_d_heading],
+            "descriptions": [version_a_description, version_b_description, version_c_description, version_d_description]
         }
     
     def _parse_response(self, response_text: str) -> Dict[str, str]:
@@ -240,6 +274,14 @@ class TextGenerationService:
                 {
                     "heading": "Pysy ajan tasalla tapahtumista",
                     "description": "Seuraa paikallisia uutisia ja tapahtumia. Ota osaa yhteisöömme ja jaa ajatuksiasi kanssamme."
+                },
+                {
+                    "heading": "Keskustele ja vaikuta kanssamme",
+                    "description": "Ota osaa ajankohtaisiin keskusteluihin. Jaa näkemyksesi ja vaikuta yhteiskuntaan yhdessä."
+                },
+                {
+                    "heading": "Lue, seuraa, ota osaa",
+                    "description": "Saat ajantasaiset uutiset ja tärkeimmät tapahtumat. Liity yhteisöömme ja ole mukana."
                 }
             ],
             "facebook": [
@@ -250,6 +292,14 @@ class TextGenerationService:
                 {
                     "heading": "Liity keskusteluun kanssamme",
                     "description": "Lue viimeisimmät uutiset ja ota osaa yhteisöömme. Jaa mielipiteesi ja keskustele aiheista."
+                },
+                {
+                    "heading": "Pysy kartalla tärkeimmistä uutisista",
+                    "description": "Saat päivittäin merkittävimmät uutiset ja tapahtumat. Ota osaa yhteisöömme ja keskustele kanssamme."
+                },
+                {
+                    "heading": "Ajantasainen tieto suoraan sinulle",
+                    "description": "Lue uusimmat uutiset ja seurää tärkeitä tapahtumia. Jaa ajatuksiasi ja vaikuta mielipiteisiin."
                 }
             ],
             "linkedin": [
@@ -260,6 +310,14 @@ class TextGenerationService:
                 {
                     "heading": "Syvällistä asiantuntemusta",
                     "description": "Saat ajantasaiset uutiset ja ammattitaitoista näkökulmaa. Seuraa alasi kehitystä kanssamme."
+                },
+                {
+                    "heading": "Strategisia näkökulmia ja analyysejä",
+                    "description": "Lisää osaamistasi syvällisillä analyyseillä ja ammattitaitoisella journalismilla. Kehitä itseäsi jatkuvasti."
+                },
+                {
+                    "heading": "Asiantuntijuutta ja osaamista",
+                    "description": "Saat strategisia näkökulmia ja ammattitaitoista tietoa. Kehitä uraasi ja kasva asiantuntijana."
                 }
             ]
         }

@@ -25,7 +25,7 @@ Content guidelines:
 
 {input_text_context}
 
-Please generate TWO COMPLETELY DIFFERENT versions of content (Version A and Version B) with distinct styles, tones, and approaches:
+Please generate FOUR COMPLETELY DIFFERENT versions of content (Version A, B, C, and D) with distinct styles, tones, and approaches:
 
 Version A - Creative & Playful:
 1. A catchy heading/title with emojis (creative, fun tone)
@@ -35,12 +35,19 @@ Version B - Professional & Informative:
 1. A different catchy heading/title with emojis (professional, informative tone)
 2. A different engaging, concise description (serious, informative style)
 
+Version C - Question-based & Engaging:
+1. A catchy heading/title with emojis (question-based, engaging tone)
+2. An engaging, concise description (curious, thought-provoking style)
+
+Version D - Bold & Direct:
+1. A catchy heading/title with emojis (bold, direct tone)
+2. An engaging, concise description (confident, impactful style)
+
 IMPORTANT: 
 - Do NOT include the newspaper name in headings
 - Make versions distinctly different in tone and approach
 - Use different emojis and language styles
-- Version A should be more casual/creative
-- Version B should be more professional/informative
+- Each version should have a unique personality and voice
 
 Format your response exactly as:
 VERSION A:
@@ -48,6 +55,14 @@ HEADING: [your heading here - NO newspaper name]
 DESCRIPTION: [your description here]
 
 VERSION B:
+HEADING: [your alternative heading here - NO newspaper name]
+DESCRIPTION: [your alternative description here]
+
+VERSION C:
+HEADING: [your alternative heading here - NO newspaper name]
+DESCRIPTION: [your alternative description here]
+
+VERSION D:
 HEADING: [your alternative heading here - NO newspaper name]
 DESCRIPTION: [your alternative description here]""",
 
@@ -173,7 +188,7 @@ Content guidelines:
 
 {input_text_context}
 
-Please generate TWO COMPLETELY DIFFERENT versions of content (Version A and Version B) with distinct styles, tones, and approaches:
+Please generate FOUR COMPLETELY DIFFERENT versions of content (Version A, B, C, and D) with distinct styles, tones, and approaches:
 
 Version A - Creative & Playful:
 1. A catchy, attention-grabbing heading for the story (creative, fun tone)
@@ -181,12 +196,17 @@ Version A - Creative & Playful:
 Version B - Professional & Informative:
 1. A different catchy, attention-grabbing heading for the story (professional, informative tone)
 
+Version C - Question-based & Engaging:
+1. A catchy, attention-grabbing heading for the story (question-based, engaging tone)
+
+Version D - Bold & Direct:
+1. A catchy, attention-grabbing heading for the story (bold, direct tone)
+
 IMPORTANT: 
 - Do NOT include the newspaper name in headings
 - Make versions distinctly different in tone and approach
 - Use different emojis and language styles
-- Version A should be more casual/creative
-- Version B should be more professional/informative
+- Each version should have a unique personality and voice
 
 Format your response exactly as:
 VERSION A:
@@ -194,6 +214,14 @@ HEADING: [your heading here - NO newspaper name]
 DESCRIPTION: [stories are visual-first, no description needed]
 
 VERSION B:
+HEADING: [your alternative heading here - NO newspaper name]
+DESCRIPTION: [stories are visual-first, no description needed]
+
+VERSION C:
+HEADING: [your alternative heading here - NO newspaper name]
+DESCRIPTION: [stories are visual-first, no description needed]
+
+VERSION D:
 HEADING: [your alternative heading here - NO newspaper name]
 DESCRIPTION: [stories are visual-first, no description needed]""",
 

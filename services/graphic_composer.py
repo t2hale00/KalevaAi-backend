@@ -2,7 +2,7 @@
 Advanced graphic composition service for creating branded social media graphics.
 Inspired by the example outputs provided by the user.
 """
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 from typing import Dict
 from pathlib import Path
 from loguru import logger
@@ -122,20 +122,20 @@ class GraphicComposer:
                 photo_width = int(target_width * 0.6)  # 3/5 of width
                 background = self._create_background_layer(input_image_path, photo_width, target_height)
                 
-                if version == 1:
-                    # Version 1: Photo on the right (solid panel on left)
+                if version == 1 or version == 3:
+                    # Version 1 & 3: Photo on the right (solid panel on left)
                     canvas.paste(background, (int(target_width * 0.4), 0))  # Start at 2/5 position
-                else:
-                    # Version 2: Photo on the left (solid panel on right)
+                else:  # version == 2 or version == 4
+                    # Version 2 & 4: Photo on the left (solid panel on right)
                     canvas.paste(background, (0, 0))
             else:
                 # For portrait/square layouts
-                if version == 2:
-                    # Version 2: Photo covers entire canvas
+                if version == 2 or version == 3:
+                    # Version 2 and 3: Photo covers entire canvas
                     background = self._create_background_layer(input_image_path, target_width, target_height)
                     canvas.paste(background, (0, 0))
                 else:
-                    # Version 1: Photo covers top 80% (updated from 82%)
+                    # Version 1 and 4: Photo covers top 80% (updated from 82%)
                     photo_height = int(target_height * 0.80)
                     background = self._create_background_layer(input_image_path, target_width, photo_height)
                     canvas.paste(background, (0, 0))
@@ -231,13 +231,6 @@ class GraphicComposer:
         
         return image
     
-    def _add_dark_overlay(self, canvas: Image.Image, intensity: float = 0.4) -> Image.Image:
-        """Add dark overlay for better text readability."""
-        overlay = Image.new('RGBA', canvas.size, (0, 0, 0, int(255 * intensity)))
-        canvas = canvas.convert('RGBA')
-        canvas = Image.alpha_composite(canvas, overlay)
-        return canvas.convert('RGB')
-    
     def _add_newspaper_logo(self, canvas: Image.Image, newspaper: str, colors: Dict) -> Image.Image:
         """Add newspaper logo in top-right corner with proper color template."""
         width, height = canvas.size
@@ -276,8 +269,24 @@ class GraphicComposer:
     
     def _add_newspaper_background_overlay(self, canvas: Image.Image, colors: Dict, width: int, height: int) -> Image.Image:
         """Add solid newspaper color background at bottom like in the example."""
-        # Create solid background covering bottom 1/3 of the image
-        overlay_height = height // 3
+        # Create solid background covering bottom 20% of the image (smaller)
+        overlay_height = int(height * 0.20)
+        
+        # Create solid overlay (not semi-transparent)
+        overlay = Image.new('RGB', (width, overlay_height), colors["primary"])
+        
+        # Position at bottom
+        y_pos = height - overlay_height
+        
+        # Paste solid overlay onto canvas
+        canvas.paste(overlay, (0, y_pos))
+        
+        return canvas
+    
+    def _add_newspaper_background_overlay_v4(self, canvas: Image.Image, colors: Dict, width: int, height: int) -> Image.Image:
+        """Add solid newspaper color background at bottom for version 4 (30% height)."""
+        # Create solid background covering bottom 30% of the image
+        overlay_height = int(height * 0.30)
         
         # Create solid overlay (not semi-transparent)
         overlay = Image.new('RGB', (width, overlay_height), colors["primary"])
@@ -291,9 +300,9 @@ class GraphicComposer:
         return canvas
     
     def _add_semi_transparent_overlay(self, canvas: Image.Image, colors: Dict, width: int, height: int) -> Image.Image:
-        """Add solid newspaper color background covering bottom 20% (Version 1 style)."""
-        # Create overlay covering bottom 20% of the image (solid newspaper color)
-        overlay_height = int(height * 0.20)  # 20% of canvas height
+        """Add solid newspaper color background covering bottom 15% (Version 1 style)."""
+        # Create overlay covering bottom 15% of the image (solid newspaper color)
+        overlay_height = int(height * 0.15)  # 15% of canvas height (smaller)
         
         # Create solid newspaper color background
         overlay = Image.new('RGB', (width, overlay_height), colors["primary"])
@@ -318,10 +327,9 @@ class GraphicComposer:
         solid_color_height = int(height * 0.20)
         solid_color_start = height - solid_color_height
         
-        # Position logo in top area of solid color section (stories only)
+        # Position logo in center of solid color section
         x_center = width // 2
-        # Move logo to top 1/5 of solid color area for stories (higher positioning)
-        y_center = solid_color_start + (solid_color_height // 5)  # Top 1/5 of solid color
+        y_center = solid_color_start + (solid_color_height // 2)  # Center of solid color
         
         # Try to load newspaper logo
         brand_specs = get_brand_specs(newspaper)
@@ -388,8 +396,8 @@ class GraphicComposer:
         logo_height = int(height * 0.08)  # 8% of canvas height (original size for posts)
         max_logo_width = int(width * 0.4)  # Maximum 40% of canvas width for uniform sizing (original for posts)
         
-        # Calculate solid color area (bottom 20%)
-        solid_color_height = int(height * 0.20)
+        # Calculate solid color area (bottom 15%)
+        solid_color_height = int(height * 0.15)
         solid_color_start = height - solid_color_height
         
         # Position logo in center of solid color area (original positioning for posts)
@@ -454,54 +462,14 @@ class GraphicComposer:
             logger.info(f"Added {newspaper} text logo at bottom center to graphic")
         
         return canvas
-        
-        # Try to load newspaper logo
-        brand_specs = get_brand_specs(newspaper)
-        if brand_specs and brand_specs.logo_path:
-            logo_path = Path(brand_specs.logo_path)
-            if logo_path.exists():
-                try:
-                    logo = Image.open(logo_path)
-                    # Resize logo with uniform sizing constraints
-                    # Calculate aspect ratio
-                    aspect_ratio = logo.width / logo.height
-                    
-                    # Calculate width based on height constraint
-                    logo_width = int(logo_height * aspect_ratio)
-                    
-                    # If width exceeds maximum, scale down proportionally
-                    if logo_width > max_logo_width:
-                        logo_width = max_logo_width
-                        logo_height = int(logo_width / aspect_ratio)
-                    
-                    logo = logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
-                    
-                    # Convert to RGBA if needed for transparency
-                    if logo.mode != 'RGBA':
-                        logo = logo.convert('RGBA')
-                    
-                    # Apply newspaper color template to logo
-                    logo = self._apply_color_template(logo, colors)
-                    
-                    # Center horizontally and vertically in solid color area
-                    x_pos = x_center - logo_width // 2
-                    y_pos = y_center - logo_height // 2
-                    
-                    # Paste logo onto canvas
-                    canvas.paste(logo, (x_pos, y_pos), logo)
-                    logger.info(f"Added {newspaper} logo at bottom center to graphic")
-                except Exception as e:
-                    logger.warning(f"Failed to load logo for {newspaper}: {e}")
-        
-        return canvas
     
     def _add_headline_top(self, canvas: Image.Image, text: str, width: int, height: int, newspaper: str, content_type: str) -> Image.Image:
         """Add headline at top of image (Version 2 - KALEVA style)."""
         draw = ImageDraw.Draw(canvas)
         
-        # Position at top center, but lower to avoid campaign banner overlap
+        # Position at top center, in upper 25%
         x_center = width // 2
-        y_pos = int(height * 0.25)  # 25% from top (moved down from 18%)
+        y_pos = int(height * 0.22)  # 22% from top (upper 25%, allowing space for banner above)
         
         # Get font size from brand specifications
         brand_specs = get_brand_specs(newspaper)
@@ -668,7 +636,7 @@ class GraphicComposer:
         
         return colored_logo
     
-    def _add_campaign_banner(self, canvas: Image.Image, colors: Dict, content_type: str, width: int, height: int, banner_text: str = None) -> Image.Image:
+    def _add_campaign_banner(self, canvas: Image.Image, colors: Dict, content_type: str, width: int, height: int, banner_text: str = None, version: int = 1) -> Image.Image:
         """Add rectangular campaign banner with centered title and white background."""
         draw = ImageDraw.Draw(canvas)
         
@@ -688,24 +656,28 @@ class GraphicComposer:
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
         
-        # Calculate banner size with larger padding to ensure text fits comfortably
-        padding_x = max(int(height * 0.04), 15)  # 4% of height or minimum 15px
-        padding_y = max(int(height * 0.04), 10)  # 4% of height or minimum 10px
+        # Calculate banner size with minimal padding to fit text snugly
+        padding_x = 8  # Small horizontal padding
+        padding_y = 4  # Small vertical padding
         banner_width = text_width + (padding_x * 2)
         banner_height = text_height + (padding_y * 2)
         
         # Center the banner horizontally on the canvas
         x_pos = (width - banner_width) // 2
         
-        # Position banner above headlines based on content type
-        # Stories: headlines at 50% mark, Posts: headlines at 25-60% depending on version
+        # Position banner above headlines based on content type and version
+        # Stories: headlines at 70% mark, Posts: headlines at 22% for v2, 60% for v1
         if content_type == "story":
-            # Position above centered headline (50% mark)
-            y_pos = int(height * 0.50) - banner_height - int(height * 0.03)  # 3% gap above headline
+            # Position above centered headline (70% mark)
+            y_pos = int(height * 0.70) - banner_height - int(height * 0.01)  # 1% gap above headline
         else:
-            # Position above top headline (25% mark for v2, 60% for v1)
-            # Position just above the higher headline to work for both versions
-            y_pos = int(height * 0.25) - banner_height - int(height * 0.02)  # 2% gap above headline at 25%
+            # Position based on version
+            if version == 2:
+                # Version 2: Position just above the heading at 22%
+                y_pos = int(height * 0.22) - banner_height - int(height * 0.01)  # 1% gap above headline at 22%
+            else:  # version == 1
+                # Version 1: Position just above the heading at 60%
+                y_pos = int(height * 0.60) - banner_height - int(height * 0.01)  # 1% gap above headline at 60%
         
         # Draw white background rectangle
         draw.rectangle(
@@ -714,9 +686,114 @@ class GraphicComposer:
             outline=None
         )
         
-        # Calculate text position (centered in the banner)
-        text_x = x_pos + padding_x
-        text_y = y_pos + padding_y
+        # Calculate text position (properly centered in the banner)
+        text_x = x_pos + (banner_width - text_width) // 2  # Centered horizontally
+        text_y = y_pos + (banner_height - text_height) // 2  # Centered vertically
+        
+        # Add main text with newspaper primary color
+        draw.text((text_x, text_y), banner_text, fill=colors["primary"], font=font)
+        
+        return canvas
+    
+    def _add_campaign_banner_bottom_center(self, canvas: Image.Image, colors: Dict, content_type: str, width: int, height: int, banner_text: str = None) -> Image.Image:
+        """Add rectangular campaign banner centered above bottom headline (for version 3)."""
+        draw = ImageDraw.Draw(canvas)
+        
+        # Use user-entered banner text or default
+        if not banner_text:
+            banner_text = "ALUE- JA KUNTA-VAALIT 2025"  # Default fallback
+        
+        # Convert text to uppercase
+        banner_text = banner_text.upper()
+        
+        # Calculate font size first to determine banner size
+        font_size = min(int(height * 0.04), 28)  # 4% of height or max 28px
+        font = self._load_font(font_size, weight="Bold")
+        
+        # Get text bounding box to calculate banner dimensions
+        bbox = draw.textbbox((0, 0), banner_text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        # Calculate banner size with reasonable padding
+        padding_x = int(width * 0.02)  # 2% of width as horizontal padding
+        padding_y = int(height * 0.02)  # 2% of height as vertical padding
+        banner_width = text_width + (padding_x * 2)
+        banner_height = text_height + (padding_y * 2)
+        
+        # Center the banner horizontally on the canvas
+        x_pos = (width - banner_width) // 2
+        
+        # Position banner below bottom headline (at 70% mark + heading height)
+        # Since heading is now at 70% from top, calculate space for heading and place banner below it
+        heading_start_y = int(height * 0.70)
+        # Approximate heading height based on typical font size - more conservative estimate to avoid overlap
+        approximate_heading_height = int(height * 0.18)  # Increased to allow for up to 4 lines of text
+        y_pos = heading_start_y + approximate_heading_height + int(height * 0.02)  # 2% gap below heading
+        
+        # Draw white background rectangle
+        draw.rectangle(
+            [x_pos, y_pos, x_pos + banner_width, y_pos + banner_height],
+            fill=(255, 255, 255),  # White background
+            outline=None
+        )
+        
+        # Calculate text position (properly centered in the banner)
+        text_x = x_pos + (banner_width - text_width) // 2  # Centered horizontally
+        text_y = y_pos + (banner_height - text_height) // 2  # Centered vertically
+        
+        # Add main text with newspaper primary color
+        draw.text((text_x, text_y), banner_text, fill=colors["primary"], font=font)
+        
+        return canvas
+    
+    def _add_campaign_banner_in_panel(self, canvas: Image.Image, colors: Dict, content_type: str, width: int, height: int, banner_text: str = None) -> Image.Image:
+        """Add rectangular campaign banner centered inside the solid color panel, above the headline (for version 4)."""
+        draw = ImageDraw.Draw(canvas)
+        
+        # Use user-entered banner text or default
+        if not banner_text:
+            banner_text = "ALUE- JA KUNTA-VAALIT 2025"  # Default fallback
+        
+        # Convert text to uppercase
+        banner_text = banner_text.upper()
+        
+        # Calculate font size - slightly smaller for banner in panel
+        font_size = min(int(height * 0.035), 24)  # 3.5% of height or max 24px
+        font = self._load_font(font_size, weight="Bold")
+        
+        # Get text bounding box to calculate banner dimensions
+        bbox = draw.textbbox((0, 0), banner_text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        # Calculate banner size with minimal padding to fit text snugly
+        padding_x = 8  # Small horizontal padding
+        padding_y = 4  # Small vertical padding
+        banner_width = text_width + (padding_x * 2)
+        banner_height = text_height + (padding_y * 2)
+        
+        # Calculate panel position (bottom 20%)
+        overlay_height = int(height * 0.20)
+        panel_start_y = height - overlay_height
+        
+        # Position banner's center in the upper quarter of the solid panel (above where heading will be)
+        banner_center_y = panel_start_y + (overlay_height // 4)
+        banner_y = banner_center_y - (banner_height // 2)
+        
+        # Center the banner horizontally
+        banner_x = (width - banner_width) // 2
+        
+        # Draw white background rectangle
+        draw.rectangle(
+            [banner_x, banner_y, banner_x + banner_width, banner_y + banner_height],
+            fill=(255, 255, 255),  # White background
+            outline=None
+        )
+        
+        # Calculate text position (properly centered in the banner)
+        text_x = banner_x + (banner_width - text_width) // 2  # Centered horizontally
+        text_y = banner_y + (banner_height - text_height) // 2  # Centered vertically
         
         # Add main text with newspaper primary color
         draw.text((text_x, text_y), banner_text, fill=colors["primary"], font=font)
@@ -730,10 +807,11 @@ class GraphicComposer:
         # Position text in lower part of photo area
         x_center = width // 2
         # Position text based on content type
+        # Ensure heading doesn't overlap with solid color panel at bottom
         if content_type == "story":
-            y_center = int(height * 0.50)  # Stories: Position at 50% mark
+            y_center = int(height * 0.70)  # Stories: Position at 70% mark to avoid overlap with 20% bottom panel
         else:
-            y_center = int(height * 0.60)  # Posts: Position at 60% mark (higher)
+            y_center = int(height * 0.60)  # Posts: Position at 60% mark to avoid overlap with 15% bottom panel
         
         # Get font size from brand specifications (80px for stories, 60px for posts)
         brand_specs = get_brand_specs(newspaper)
@@ -791,10 +869,213 @@ class GraphicComposer:
         
         return canvas
     
+    def _add_newspaper_logo_top_left(self, canvas: Image.Image, newspaper: str, colors: Dict, width: int, height: int) -> Image.Image:
+        """Add newspaper logo at top left corner of canvas."""
+        draw = ImageDraw.Draw(canvas)
+        
+        # Calculate logo size and position
+        logo_height = int(height * 0.10)  # 10% of canvas height (bigger)
+        max_logo_width = int(width * 0.45)  # Maximum 45% of canvas width (allow bigger)
+        
+        # Position at top left
+        x_pos = int(width * 0.05)  # 5% margin from left
+        y_pos = int(height * 0.05)  # 5% margin from top
+        
+        # Try to load newspaper logo
+        brand_specs = get_brand_specs(newspaper)
+        if brand_specs and brand_specs.logo_path:
+            logo_path = Path(brand_specs.logo_path)
+            if logo_path.exists():
+                try:
+                    logo = Image.open(logo_path)
+                    # Resize logo with uniform sizing constraints
+                    aspect_ratio = logo.width / logo.height
+                    logo_width = int(logo_height * aspect_ratio)
+                    
+                    # If width exceeds maximum, scale down proportionally
+                    if logo_width > max_logo_width:
+                        logo_width = max_logo_width
+                        logo_height = int(logo_width / aspect_ratio)
+                    
+                    logo = logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
+                    
+                    # Convert to RGBA if needed for transparency
+                    if logo.mode != 'RGBA':
+                        logo = logo.convert('RGBA')
+                    
+                    # Apply newspaper color template to logo
+                    logo = self._apply_color_template(logo, colors)
+                    
+                    # Make logo brighter for better visibility
+                    enhancer = ImageEnhance.Brightness(logo)
+                    logo = enhancer.enhance(1.3)  # Increase brightness by 30%
+                    
+                    # Paste logo onto canvas
+                    canvas.paste(logo, (x_pos, y_pos), logo)
+                    logger.info(f"Added {newspaper} logo at top left to graphic")
+                except Exception as e:
+                    logger.warning(f"Failed to load logo for {newspaper}: {e}")
+        
+        # Fallback: Add text-based logo if image logo failed
+        if not (brand_specs and brand_specs.logo_path and Path(brand_specs.logo_path).exists()):
+            # Use newspaper name as text logo
+            font_size = min(logo_height, 24)
+            font = self._load_font(font_size, weight="Bold")
+            
+            # Get text bounding box
+            bbox = draw.textbbox((0, 0), newspaper, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            
+            # Position text logo at top left
+            text_x = x_pos
+            text_y = y_pos
+            
+            # Add text shadow for better readability
+            shadow_offset = 1
+            draw.text((text_x + shadow_offset, text_y + shadow_offset), newspaper, fill=(0, 0, 0), font=font)
+            
+            # Add main text
+            draw.text((text_x, text_y), newspaper, fill=(255, 255, 255), font=font)
+            logger.info(f"Added {newspaper} text logo at top left to graphic")
+        
+        return canvas
     
+    def _add_newspaper_logo_top_center(self, canvas: Image.Image, newspaper: str, colors: Dict, width: int, height: int) -> Image.Image:
+        """Add newspaper logo at top center of canvas."""
+        draw = ImageDraw.Draw(canvas)
+        
+        # Calculate logo size and position
+        logo_height = int(height * 0.10)  # Increased to 10% of canvas height
+        max_logo_width = int(width * 0.4)  # Maximum 40% of canvas width
+        
+        # Position at top center
+        x_center = width // 2
+        y_center = int(height * 0.08)  # 8% from top
+        
+        # Try to load newspaper logo
+        brand_specs = get_brand_specs(newspaper)
+        if brand_specs and brand_specs.logo_path:
+            logo_path = Path(brand_specs.logo_path)
+            if logo_path.exists():
+                try:
+                    logo = Image.open(logo_path)
+                    # Resize logo with uniform sizing constraints
+                    aspect_ratio = logo.width / logo.height
+                    logo_width = int(logo_height * aspect_ratio)
+                    
+                    # If width exceeds maximum, scale down proportionally
+                    if logo_width > max_logo_width:
+                        logo_width = max_logo_width
+                        logo_height = int(logo_width / aspect_ratio)
+                    
+                    logo = logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
+                    
+                    # Convert to RGBA if needed for transparency
+                    if logo.mode != 'RGBA':
+                        logo = logo.convert('RGBA')
+                    
+                    # Apply newspaper color template to logo
+                    logo = self._apply_color_template(logo, colors)
+                    
+                    # Make logo brighter for version 4
+                    enhancer = ImageEnhance.Brightness(logo)
+                    logo = enhancer.enhance(1.3)  # Increase brightness by 30%
+                    
+                    # Paste logo onto canvas
+                    canvas.paste(logo, (x_center - logo.width // 2, y_center - logo.height // 2), logo)
+                    logger.info(f"Added {newspaper} logo at top center to graphic")
+                except Exception as e:
+                    logger.warning(f"Failed to load logo for {newspaper}: {e}")
+        
+        # Fallback: Add text-based logo if image logo failed
+        if not (brand_specs and brand_specs.logo_path and Path(brand_specs.logo_path).exists()):
+            # Use newspaper name as text logo
+            font_size = min(logo_height, 24)
+            font = self._load_font(font_size, weight="Bold")
+            
+            # Get text bounding box
+            bbox = draw.textbbox((0, 0), newspaper, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            
+            # Position text logo at top center
+            text_x = x_center - text_width // 2
+            text_y = y_center - text_height // 2
+            
+            # Add text shadow for better readability
+            shadow_offset = 1
+            draw.text((text_x + shadow_offset, text_y + shadow_offset), newspaper, fill=(0, 0, 0), font=font)
+            
+            # Add main text
+            draw.text((text_x, text_y), newspaper, fill=(255, 255, 255), font=font)
+            logger.info(f"Added {newspaper} text logo at top center to graphic")
+        
+        return canvas
     
-
-
+    def _add_headline_in_panel(self, canvas: Image.Image, text: str, width: int, height: int, newspaper: str, content_type: str) -> Image.Image:
+        """Add headline text inside the solid color panel at bottom (Version 4 portrait style)."""
+        draw = ImageDraw.Draw(canvas)
+        
+        # Calculate panel position (bottom 20%)
+        overlay_height = int(height * 0.20)
+        panel_start_y = height - overlay_height
+        
+        # Position text centered in the panel
+        x_center = width // 2
+        y_center = panel_start_y + (overlay_height // 2)  # Center of solid color panel
+        
+        # Get font size from brand specifications
+        brand_specs = get_brand_specs(newspaper)
+        if brand_specs:
+            font_size = brand_specs.font_size_story if content_type == "story" else brand_specs.font_size_post
+        else:
+            font_size = min(width // 15, height // 15, 48)
+        
+        font = self._load_font(font_size, weight="Bold")
+        
+        # Wrap text if needed
+        words = text.split()
+        lines = []
+        current_line = []
+        
+        for word in words:
+            current_line.append(word)
+            test_text = " ".join(current_line)
+            bbox = draw.textbbox((0, 0), test_text, font=font)
+            text_width = bbox[2] - bbox[0]
+            
+            if text_width > width * 0.8:  # 80% of canvas width
+                if len(current_line) > 1:
+                    current_line.pop()
+                    lines.append(" ".join(current_line))
+                    current_line = [word]
+                else:
+                    lines.append(word)
+                    current_line = []
+        
+        if current_line:
+            lines.append(" ".join(current_line))
+        
+        # Draw each line centered in the panel
+        total_height = len(lines) * font_size
+        start_y = y_center - total_height // 2
+        
+        for i, line in enumerate(lines):
+            bbox = draw.textbbox((0, 0), line, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_x = x_center - text_width // 2
+            text_y = start_y + (i * font_size)
+            
+            # Add text shadow for better readability
+            shadow_offset = 1
+            draw.text((text_x + shadow_offset, text_y + shadow_offset), line, fill=(0, 0, 0), font=font)
+            
+            # Use white color for text in panel
+            draw.text((text_x, text_y), line, fill=(255, 255, 255), font=font)
+        
+        return canvas
+    
     def _add_campaign_banner_story(self, canvas: Image.Image, colors: Dict, content_type: str, width: int, height: int, banner_text: str = None) -> Image.Image:
         """Add rectangular campaign banner with centered title and white background for stories."""
         draw = ImageDraw.Draw(canvas)
@@ -815,18 +1096,18 @@ class GraphicComposer:
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
         
-        # Calculate banner size with larger padding to ensure text fits comfortably
-        padding_x = max(int(height * 0.04), 15)  # 4% of height or minimum 15px
-        padding_y = max(int(height * 0.04), 10)  # 4% of height or minimum 10px
+        # Calculate banner size with minimal padding to fit text snugly
+        padding_x = 8  # Small horizontal padding
+        padding_y = 4  # Small vertical padding
         banner_width = text_width + (padding_x * 2)
         banner_height = text_height + (padding_y * 2)
         
         # Center the banner horizontally on the canvas
         x_pos = (width - banner_width) // 2
         
-        # Position banner above headlines for stories (headlines at 50% mark, centered)
-        # Move banner much higher to avoid overlap with large headline text
-        y_pos = int(height * 0.50) - banner_height - int(height * 0.12)  # 12% gap above headline to prevent overlap
+        # Position banner above headlines for stories (headlines at 70% mark, centered)
+        # Position banner above the heading to avoid overlap
+        y_pos = int(height * 0.70) - banner_height - int(height * 0.01)  # 1% gap above headline to prevent overlap
         
         # Draw white background rectangle
         draw.rectangle(
@@ -835,9 +1116,9 @@ class GraphicComposer:
             outline=None
         )
         
-        # Calculate text position (centered in the banner)
-        text_x = x_pos + padding_x
-        text_y = y_pos + padding_y
+        # Calculate text position (properly centered in the banner)
+        text_x = x_pos + (banner_width - text_width) // 2  # Centered horizontally
+        text_y = y_pos + (banner_height - text_height) // 2  # Centered vertically
         
         # Add main text with newspaper primary color
         draw.text((text_x, text_y), banner_text, fill=colors["primary"], font=font)
@@ -899,6 +1180,65 @@ class GraphicComposer:
         
         return canvas
     
+    def _add_headline_bottom_center(self, canvas: Image.Image, text: str, width: int, height: int, newspaper: str, content_type: str) -> Image.Image:
+        """Add headline at bottom center of image."""
+        draw = ImageDraw.Draw(canvas)
+        
+        # Position at bottom center
+        x_center = width // 2
+        y_pos = int(height * 0.70)  # 70% from top (moved up slightly)
+        
+        # Get font size from brand specifications
+        brand_specs = get_brand_specs(newspaper)
+        if brand_specs:
+            font_size = brand_specs.font_size_story if content_type == "story" else brand_specs.font_size_post
+        else:
+            font_size = min(width // 15, height // 15, 48)
+        
+        font = self._load_font(font_size, weight="Bold")
+        
+        # Wrap text if needed
+        words = text.split()
+        lines = []
+        current_line = []
+        
+        for word in words:
+            current_line.append(word)
+            test_text = " ".join(current_line)
+            bbox = draw.textbbox((0, 0), test_text, font=font)
+            text_width = bbox[2] - bbox[0]
+            
+            if text_width > width * 0.8:  # 80% of canvas width
+                if len(current_line) > 1:
+                    current_line.pop()
+                    lines.append(" ".join(current_line))
+                    current_line = [word]
+                else:
+                    lines.append(word)
+                    current_line = []
+        
+        if current_line:
+            lines.append(" ".join(current_line))
+        
+        # Draw each line
+        total_height = len(lines) * font_size
+        start_y = y_pos
+        
+        for i, line in enumerate(lines):
+            bbox = draw.textbbox((0, 0), line, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_x = x_center - text_width // 2
+            text_y = start_y + (i * font_size)
+            
+            # Add text shadow for better readability
+            shadow_offset = 2
+            draw.text((text_x + shadow_offset, text_y + shadow_offset), line, fill=(0, 0, 0), font=font)
+            
+            # Use white color
+            draw.text((text_x, text_y), line, fill=(255, 255, 255), font=font)
+        
+        return canvas
+    
     def _add_campaign_banner_landscape(self, canvas: Image.Image, colors: Dict, content_type: str, width: int, height: int, banner_text: str = None, version: int = 2) -> Image.Image:
         """Add campaign banner in upper-left of photo section for landscape."""
         draw = ImageDraw.Draw(canvas)
@@ -919,9 +1259,9 @@ class GraphicComposer:
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
         
-        # Calculate banner size with larger padding to ensure text fits comfortably
-        padding_x = max(int(height * 0.04), 15)  # 4% of height or minimum 15px
-        padding_y = max(int(height * 0.04), 10)  # 4% of height or minimum 10px
+        # Calculate banner size with minimal padding to fit text snugly
+        padding_x = 8  # Small horizontal padding
+        padding_y = 4  # Small vertical padding
         banner_width = text_width + (padding_x * 2)
         banner_height = text_height + (padding_y * 2)
         
@@ -929,11 +1269,11 @@ class GraphicComposer:
         panel_width = int(width * 0.4)  # 2/5 of width for solid color panel
         photo_width = width - panel_width  # Remaining 3/5 for photo
         
-        if version == 1:
-            # Version 1: Photo is on the right, banner goes in upper-left of photo section
+        if version == 1 or version == 3:
+            # Versions 1 & 3: Photo is on the right, banner goes in upper-left of photo section
             x_pos = photo_width + int(photo_width * 0.05)  # 5% margin from left edge of photo section
-        else:
-            # Version 2: Photo is on the left, banner goes in upper-left of photo section
+        else:  # version == 2 or version == 4
+            # Versions 2 & 4: Photo is on the left, banner goes in upper-left of photo section
             x_pos = int(photo_width * 0.05)  # 5% margin from left edge of photo section
         
         y_pos = int(height * 0.05)  # 5% margin from top
@@ -952,18 +1292,18 @@ class GraphicComposer:
         return canvas
     
     def _create_split_screen_layout(self, canvas: Image.Image, colors: Dict, width: int, height: int, version: int = 2) -> Image.Image:
-        """Create split-screen layout with solid color panel on left (v1) or right (v2)."""
+        """Create split-screen layout with solid color panel on left (v1, v3) or right (v2, v4)."""
         draw = ImageDraw.Draw(canvas)
         
         # Calculate split positions - solid color takes 2/5, photo takes 3/5
         panel_width = int(width * 0.4)  # 2/5 of width for solid color panel
         photo_width = width - panel_width  # Remaining 3/5 for photo
         
-        if version == 1:
-            # Version 1: Solid color panel on the left
+        if version == 1 or version == 3:
+            # Versions 1 & 3: Solid color panel on the left
             panel_rect = [0, 0, panel_width, height]
-        else:
-            # Version 2: Solid color panel on the right (default)
+        else:  # version == 2 or version == 4
+            # Versions 2 & 4: Solid color panel on the right (default)
             panel_rect = [photo_width, 0, width, height]
         
         draw.rectangle(panel_rect, fill=colors["primary"])
@@ -971,7 +1311,7 @@ class GraphicComposer:
         return canvas
     
     def _add_headline_landscape(self, canvas: Image.Image, text: str, width: int, height: int, newspaper: str, content_type: str, version: int = 2) -> Image.Image:
-        """Add headline on solid color panel for landscape (left for v1, right for v2)."""
+        """Add headline on solid color panel for landscape (left for v1/v3, right for v2/v4)."""
         draw = ImageDraw.Draw(canvas)
         
         # Calculate panel positions - solid color takes 2/5, photo takes 3/5
@@ -979,11 +1319,11 @@ class GraphicComposer:
         photo_width = width - panel_width  # Remaining 3/5 for photo
         
         # Position on solid color panel
-        if version == 1:
-            # Version 1: Solid color panel on the left
+        if version == 1 or version == 3:
+            # Versions 1 & 3: Solid color panel on the left
             x_center = panel_width // 2  # Center of left panel
-        else:
-            # Version 2: Solid color panel on the right
+        else:  # version == 2 or version == 4
+            # Versions 2 & 4: Solid color panel on the right
             x_center = photo_width + (panel_width // 2)  # Center of right panel
         
         y_pos = int(height * 0.15)  # 15% from top (moved up to give more space)
@@ -1054,7 +1394,7 @@ class GraphicComposer:
         return canvas
     
     def _add_newspaper_logo_landscape(self, canvas: Image.Image, newspaper: str, colors: Dict, width: int, height: int, version: int = 2) -> Image.Image:
-        """Add newspaper logo on solid color panel for landscape (left for v1, right for v2)."""
+        """Add newspaper logo on solid color panel for landscape (left for v1/v3, right for v2/v4)."""
         # Calculate panel positions - solid color takes 2/5, photo takes 3/5
         panel_width = int(width * 0.4)  # 2/5 of width for solid color panel
         photo_width = width - panel_width  # Remaining 3/5 for photo
@@ -1063,11 +1403,11 @@ class GraphicComposer:
         logo_height = int(height * 0.08)  # 8% of canvas height (increased from 5%)
         
         # Position at bottom of solid color panel
-        if version == 1:
-            # Version 1: Solid color panel on the left
+        if version == 1 or version == 3:
+            # Versions 1 & 3: Solid color panel on the left
             x_center = panel_width // 2  # Center of left panel
-        else:
-            # Version 2: Solid color panel on the right
+        else:  # version == 2 or version == 4
+            # Versions 2 & 4: Solid color panel on the right
             x_center = photo_width + (panel_width // 2)  # Center of right panel
         
         y_pos = height - int(height * 0.1) - logo_height  # 10% margin from bottom

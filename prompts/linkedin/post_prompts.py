@@ -27,7 +27,7 @@ Content guidelines:
 
 {input_text_context}
 
-Please generate TWO COMPLETELY DIFFERENT versions of content (Version A and Version B) with distinct styles, tones, and approaches:
+Please generate FOUR COMPLETELY DIFFERENT versions of content (Version A, B, C, and D) with distinct styles, tones, and approaches:
 
 Version A - Casual Professional:
 1. A professional, clear heading (casual professional tone)
@@ -37,11 +37,18 @@ Version B - Formal Professional:
 1. A different professional, clear heading (formal professional tone)
 2. A different concise, professional description (serious, authoritative style)
 
+Version C - Thought Leadership:
+1. A professional, clear heading (thought leadership tone)
+2. A concise, professional description (insightful, forward-thinking style)
+
+Version D - Results-Driven:
+1. A professional, clear heading (results-driven tone)
+2. A concise, professional description (impact-focused, data-driven style)
+
 IMPORTANT: 
 - Do NOT include the newspaper name in headings
 - Make versions distinctly different in tone and approach
-- Version A should be more casual professional
-- Version B should be more formal professional
+- Each version should have a unique personality and voice
 
 Format your response exactly as:
 VERSION A:
@@ -49,6 +56,14 @@ HEADING: [your heading here - NO newspaper name]
 DESCRIPTION: [your description here]
 
 VERSION B:
+HEADING: [your alternative heading here - NO newspaper name]
+DESCRIPTION: [your alternative description here]
+
+VERSION C:
+HEADING: [your alternative heading here - NO newspaper name]
+DESCRIPTION: [your alternative description here]
+
+VERSION D:
 HEADING: [your alternative heading here - NO newspaper name]
 DESCRIPTION: [your alternative description here]""",
 
@@ -77,7 +92,7 @@ Content guidelines:
 
 {input_text_context}
 
-Please generate TWO COMPLETELY DIFFERENT versions of content (Version A and Version B) with distinct styles, tones, and approaches:
+Please generate FOUR COMPLETELY DIFFERENT versions of content (Version A, B, C, and D) with distinct styles, tones, and approaches:
 
 Version A - Casual Professional:
 1. A professional, clear heading (casual professional tone)
@@ -87,11 +102,18 @@ Version B - Formal Professional:
 1. A different professional, clear heading (formal professional tone)
 2. A different professional, informative description with business insights (serious, authoritative style)
 
+Version C - Thought Leadership:
+1. A professional, clear heading (thought leadership tone)
+2. A professional, informative description with business insights (insightful, forward-thinking style)
+
+Version D - Results-Driven:
+1. A professional, clear heading (results-driven tone)
+2. A professional, informative description with business insights (impact-focused, data-driven style)
+
 IMPORTANT: 
 - Do NOT include the newspaper name in headings
 - Make versions distinctly different in tone and approach
-- Version A should be more casual professional
-- Version B should be more formal professional
+- Each version should have a unique personality and voice
 
 Format your response exactly as:
 VERSION A:
@@ -99,6 +121,14 @@ HEADING: [your heading here - NO newspaper name]
 DESCRIPTION: [your description here]
 
 VERSION B:
+HEADING: [your alternative heading here - NO newspaper name]
+DESCRIPTION: [your alternative description here]
+
+VERSION C:
+HEADING: [your alternative heading here - NO newspaper name]
+DESCRIPTION: [your alternative description here]
+
+VERSION D:
 HEADING: [your alternative heading here - NO newspaper name]
 DESCRIPTION: [your alternative description here]""",
 
@@ -130,7 +160,7 @@ Content guidelines:
 
 {input_text_context}
 
-Please generate TWO COMPLETELY DIFFERENT versions of content (Version A and Version B) with distinct styles, tones, and approaches:
+Please generate FOUR COMPLETELY DIFFERENT versions of content (Version A, B, C, and D) with distinct styles, tones, and approaches:
 
 Version A - Casual Professional:
 1. A professional, clear heading (casual professional tone)
@@ -140,11 +170,18 @@ Version B - Formal Professional:
 1. A different professional, clear heading (formal professional tone)
 2. A different comprehensive, professional description with business insights and analysis (serious, authoritative style)
 
+Version C - Thought Leadership:
+1. A professional, clear heading (thought leadership tone)
+2. A comprehensive, professional description with business insights and analysis (insightful, forward-thinking style)
+
+Version D - Results-Driven:
+1. A professional, clear heading (results-driven tone)
+2. A comprehensive, professional description with business insights and analysis (impact-focused, data-driven style)
+
 IMPORTANT: 
 - Do NOT include the newspaper name in headings
 - Make versions distinctly different in tone and approach
-- Version A should be more casual professional
-- Version B should be more formal professional
+- Each version should have a unique personality and voice
 
 Format your response exactly as:
 VERSION A:
@@ -152,6 +189,14 @@ HEADING: [your heading here - NO newspaper name]
 DESCRIPTION: [your description here]
 
 VERSION B:
+HEADING: [your alternative heading here - NO newspaper name]
+DESCRIPTION: [your alternative description here]
+
+VERSION C:
+HEADING: [your alternative heading here - NO newspaper name]
+DESCRIPTION: [your alternative description here]
+
+VERSION D:
 HEADING: [your alternative heading here - NO newspaper name]
 DESCRIPTION: [your alternative description here]"""
 }

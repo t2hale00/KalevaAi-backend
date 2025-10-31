@@ -26,7 +26,7 @@ Content guidelines:
 
 {input_text_context}
 
-Please generate TWO COMPLETELY DIFFERENT versions of content (Version A and Version B) with distinct styles, tones, and approaches:
+Please generate FOUR COMPLETELY DIFFERENT versions of content (Version A, B, C, and D) with distinct styles, tones, and approaches:
 
 Version A - Casual & Community-Focused:
 1. A clear, informative heading (casual, community tone)
@@ -36,11 +36,18 @@ Version B - Professional & News-Focused:
 1. A different clear, informative heading (professional, news tone)
 2. A different conversational, engaging description (serious, informative style)
 
+Version C - Question-based & Engaging:
+1. A clear, informative heading (question-based, engaging tone)
+2. A conversational, engaging description (curious, thought-provoking style)
+
+Version D - Bold & Direct:
+1. A clear, informative heading (bold, direct tone)
+2. A conversational, engaging description (confident, impactful style)
+
 IMPORTANT: 
 - Do NOT include the newspaper name in headings
 - Make versions distinctly different in tone and approach
-- Version A should be more casual/community-focused
-- Version B should be more professional/news-focused
+- Each version should have a unique personality and voice
 
 Format your response exactly as:
 VERSION A:
@@ -48,6 +55,14 @@ HEADING: [your heading here - NO newspaper name]
 DESCRIPTION: [your description here]
 
 VERSION B:
+HEADING: [your alternative heading here - NO newspaper name]
+DESCRIPTION: [your alternative description here]
+
+VERSION C:
+HEADING: [your alternative heading here - NO newspaper name]
+DESCRIPTION: [your alternative description here]
+
+VERSION D:
 HEADING: [your alternative heading here - NO newspaper name]
 DESCRIPTION: [your alternative description here]""",
 
@@ -173,7 +188,7 @@ Content guidelines:
 
 {input_text_context}
 
-Please generate TWO COMPLETELY DIFFERENT versions of content (Version A and Version B) with distinct styles, tones, and approaches:
+Please generate FOUR COMPLETELY DIFFERENT versions of content (Version A, B, C, and D) with distinct styles, tones, and approaches:
 
 Version A - Casual & Community-Focused:
 1. A clear, attention-grabbing heading for the story (casual, community tone)
@@ -181,11 +196,16 @@ Version A - Casual & Community-Focused:
 Version B - Professional & News-Focused:
 1. A different clear, attention-grabbing heading for the story (professional, news tone)
 
+Version C - Question-based & Engaging:
+1. A clear, attention-grabbing heading for the story (question-based, engaging tone)
+
+Version D - Bold & Direct:
+1. A clear, attention-grabbing heading for the story (bold, direct tone)
+
 IMPORTANT: 
 - Do NOT include the newspaper name in headings
 - Make versions distinctly different in tone and approach
-- Version A should be more casual/community-focused
-- Version B should be more professional/news-focused
+- Each version should have a unique personality and voice
 
 Format your response exactly as:
 VERSION A:
@@ -193,6 +213,14 @@ HEADING: [your heading here - NO newspaper name]
 DESCRIPTION: [stories are visual-first, no description needed]
 
 VERSION B:
+HEADING: [your alternative heading here - NO newspaper name]
+DESCRIPTION: [stories are visual-first, no description needed]
+
+VERSION C:
+HEADING: [your alternative heading here - NO newspaper name]
+DESCRIPTION: [stories are visual-first, no description needed]
+
+VERSION D:
 HEADING: [your alternative heading here - NO newspaper name]
 DESCRIPTION: [stories are visual-first, no description needed]""",
 
