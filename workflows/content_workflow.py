@@ -139,34 +139,36 @@ class ContentWorkflow:
                 graphic_url = graphic_urls[0] if graphic_urls else None
                 file_format = "PNG"
             else:
-                # Generate 2 animated graphics with different effects
-                logger.info("Step 2: Generating 2 animated graphics with different effects")
+                # Generate 2 animated graphics with different effects, headings, and styles
+                logger.info("Step 2: Generating 2 animated graphics with different effects and styles")
                 
                 graphic_urls = []
                 effect_types = ["zoom_pan", "fade_rotate"]
-                effect_names = ["zoom_pan", "fade_rotate"]
+                effect_names = ["fade_wipe_up", "wipe_fly"]
                 
-                # Use the first heading for animated graphics
-                first_heading = headings[0] if headings else "Generated Heading"
-                
+                # Use different heading and version for each video
                 for i, (effect_type, effect_name) in enumerate(zip(effect_types, effect_names), 1):
                     output_filename = f"{task_id}_v{i}_{effect_name}.mp4"
                     output_path = str(self.output_dir / output_filename)
                     
+                    # Use different heading for each version
+                    heading = headings[i-1] if i-1 < len(headings) else headings[0] if headings else "Generated Heading"
+                    
                     try:
                         video_generation_service.create_motion_graphic(
                             input_image_path=image_path,
-                            heading_text=first_heading,
+                            heading_text=heading,
                             newspaper=request.newspaper.value,
                             platform=request.platform.value,
                             content_type=request.content_type.value,
                             layout=request.layout.value,
                             output_path=output_path,
-                            effect_type=effect_type
+                            effect_type=effect_type,
+                            version=i  # Pass version for different styles
                         )
                         
                         graphic_urls.append(f"/api/download/{output_filename}")
-                        logger.info(f"Generated video version {i} with {effect_name} effect: {output_filename}")
+                        logger.info(f"Generated video version {i} with {effect_name} effect and heading {i}: {output_filename}")
                         
                     except Exception as e:
                         logger.error(f"Error generating video version {i}: {e}")

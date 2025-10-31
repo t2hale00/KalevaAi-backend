@@ -25,8 +25,9 @@ class VideoGenerationService:
         content_type: str,
         layout: str,
         output_path: str,
-        duration: int = 5,
-        effect_type: str = "zoom_pan"
+        duration: int = 3,
+        effect_type: str = "zoom_pan",
+        version: int = 1
     ) -> str:
         """
         Create a motion-style graphic with animations.
@@ -41,6 +42,7 @@ class VideoGenerationService:
             output_path: Path to save output video
             duration: Video duration in seconds
             effect_type: Type of animation effect ("zoom_pan" or "fade_rotate")
+            version: Visual version/style (1 or 2) for different layouts
             
         Returns:
             Path to created video
@@ -58,9 +60,9 @@ class VideoGenerationService:
         target_height = platform_specs["height"]
         
         # Create video using OpenCV instead of MoviePy to avoid ImageMagick dependency
-        logger.info("Creating video frames with text overlay using OpenCV")
+        logger.info("Creating video frames with separate photo and text effects")
         
-        # Import graphic composer to create a branded frame
+        # Import graphic composer to create layered frames
         from services.graphic_composer import graphic_composer
         
         # Create a temporary branded image with text
@@ -75,12 +77,29 @@ class VideoGenerationService:
             content_type=content_type,
             layout=layout,
             output_path=temp_image_path,
-            campaign_type="logo_only"
+            campaign_type="logo_only",
+            version=version  # Use different visual style
         )
         
-        # Create video with animations using OpenCV
+        # Load the complete branded image
         base_img = cv2.imread(temp_image_path)
         height, width, layers = base_img.shape
+        
+        # Create a photo-only layer (without text) for separate animation
+        temp_photo_path = str(Path(output_path).parent / f"temp_photo_{Path(output_path).stem}.png")
+        graphic_composer.create_branded_social_graphic(
+            input_image_path=input_image_path,
+            heading_text="",  # No text for photo layer
+            description_text="",
+            newspaper=newspaper,
+            platform=platform,
+            content_type=content_type,
+            layout=layout,
+            output_path=temp_photo_path,
+            campaign_type="logo_only",
+            version=version  # Use same visual style for photo layer
+        )
+        photo_img = cv2.imread(temp_photo_path)
         
         # Define the codec and create VideoWriter object
         # Use H264 codec for better compatibility
@@ -103,8 +122,9 @@ class VideoGenerationService:
             # Calculate progress (0 to 1)
             progress = frame_num / total_frames
             
-            # Create animated frame with effects
-            animated_frame = self._apply_animation_effects(
+            # Apply separate effects to photo and text layers
+            animated_frame = self._apply_layered_animation_effects(
+                photo_img.copy(),
                 base_img.copy(),
                 progress,
                 width,
@@ -121,15 +141,35 @@ class VideoGenerationService:
         # Release the video writer
         video.release()
         
-        # Clean up temporary image
+        # Clean up temporary images
         try:
             Path(temp_image_path).unlink()
+            Path(temp_photo_path).unlink()
         except:
             pass
         
         logger.info(f"Motion graphic saved to {output_path}")
         
         return output_path
+    
+    def _apply_layered_animation_effects(self, photo_frame, text_frame, progress, width, height, effect_type="zoom_pan"):
+        """
+        Apply separate effects to photo and text layers for PowerPoint-style animations.
+        
+        Args:
+            photo_frame: Photo layer without text
+            text_frame: Complete image with text
+            progress: Animation progress (0 to 1)
+            width: Target width
+            height: Target height
+            effect_type: Type of effect to apply ("zoom_pan" or "fade_rotate")
+        """
+        if effect_type == "zoom_pan":
+            return self._apply_zoom_pan_layered(photo_frame, text_frame, progress, width, height)
+        elif effect_type == "fade_rotate":
+            return self._apply_fade_rotate_layered(photo_frame, text_frame, progress, width, height)
+        else:
+            return text_frame
     
     def _apply_animation_effects(self, frame, progress, width, height, effect_type="zoom_pan"):
         """
@@ -152,6 +192,43 @@ class VideoGenerationService:
             return self._apply_fade_rotate_effects(frame, progress, width, height)
         else:
             return frame
+    
+    def _apply_zoom_pan_layered(self, photo_frame, text_frame, progress, width, height):
+        """
+        PowerPoint transition: Photo uses "Fade" and text uses "Wipe Up" effect.
+        Clean, professional look matching PowerPoint's elegant transitions.
+        """
+        # Photo effect: Fade In (PowerPoint Fade transition)
+        # Fast fade from black
+        ease_progress = progress * progress * (3.0 - 2.0 * progress)  # Smoothstep
+        photo_fade_progress = min(progress / 0.3, 1.0)  # Complete in first 30%
+        photo_alpha = photo_fade_progress ** 0.8  # Smooth ease-out
+        
+        # Apply fade to photo
+        black = np.zeros_like(photo_frame)
+        photo_faded = cv2.addWeighted(black, 1 - photo_alpha, photo_frame, photo_alpha, 0)
+        
+        # Text effect: Wipe Up (PowerPoint Wipe Up transition)
+        # Text wipes in from bottom to top
+        text_progress = max(0, (progress - 0.3) / 0.7)  # Start after photo fade, end at 100%
+        text_ease = text_progress * text_progress * (3.0 - 2.0 * text_progress)
+        
+        # Create wipe mask from bottom to top
+        wipe_height = int(height * text_ease)
+        text_wipe = np.zeros_like(text_frame)
+        text_wipe[height - wipe_height:height, :] = text_frame[height - wipe_height:height, :]
+        
+        # Extract text layer and apply wipe effect
+        diff = cv2.absdiff(text_wipe, photo_frame)
+        text_mask = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+        _, text_mask = cv2.threshold(text_mask, 10, 255, cv2.THRESH_BINARY)
+        text_mask_normalized = text_mask.astype(np.float32) / 255.0
+        
+        # Blend text wipe over faded photo
+        for c in range(3):
+            photo_faded[:, :, c] = photo_faded[:, :, c] * (1 - text_mask_normalized) + text_wipe[:, :, c] * text_mask_normalized
+        
+        return photo_faded
     
     def _apply_zoom_pan_effects(self, frame, progress, width, height):
         """
@@ -203,6 +280,51 @@ class VideoGenerationService:
             cropped = cv2.convertScaleAbs(cropped, alpha=min(brightness_boost, 1.1), beta=3)
         
         return cropped
+    
+    def _apply_fade_rotate_layered(self, photo_frame, text_frame, progress, width, height):
+        """
+        PowerPoint transition: Photo uses "Wipe Right" and text uses "Fly In from Bottom" effect.
+        Dynamic presentation style with movement.
+        """
+        # Photo effect: Wipe Right (PowerPoint Wipe Right transition)
+        # Image wipes in from left to right
+        photo_progress = min(progress / 0.4, 1.0)  # Complete in first 40%
+        photo_ease = photo_progress * photo_progress * (3.0 - 2.0 * photo_progress)
+        
+        # Create wipe mask from left to right
+        wipe_width = int(width * photo_ease)
+        photo_wipe = np.zeros_like(photo_frame)
+        photo_wipe[:, :wipe_width] = photo_frame[:, :wipe_width]
+        
+        # Text effect: Fly In from Bottom (PowerPoint Fly In transition)
+        # Text flies in from the bottom
+        text_progress = max(0, (progress - 0.4) / 0.6)  # Start after photo, end at 100%
+        text_ease = text_progress * text_progress * (3.0 - 2.0 * text_progress)
+        
+        # Calculate fly distance
+        fly_distance = int(height * 0.2 * (1 - text_ease))  # Fly 20% of height
+        
+        # Create text with fly in effect from bottom
+        text_fly = np.zeros_like(text_frame)
+        if fly_distance > 0:
+            text_fly[:height - fly_distance, :] = text_frame[fly_distance:, :]
+        else:
+            text_fly = text_frame
+        
+        # Apply fade to flying text
+        text_alpha = text_ease ** 0.8
+        
+        # Extract text layer and apply fly effect
+        diff = cv2.absdiff(text_fly, photo_frame)
+        text_mask = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+        _, text_mask = cv2.threshold(text_mask, 10, 255, cv2.THRESH_BINARY)
+        text_mask_normalized = text_mask.astype(np.float32) / 255.0 * text_alpha
+        
+        # Blend text fly over wiped photo
+        for c in range(3):
+            photo_wipe[:, :, c] = photo_wipe[:, :, c] * (1 - text_mask_normalized) + text_fly[:, :, c] * text_mask_normalized
+        
+        return photo_wipe
     
     def _apply_fade_rotate_effects(self, frame, progress, width, height):
         """
